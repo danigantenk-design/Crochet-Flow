@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Shop;
 use App\Models\Order;
 use App\Models\Shipment;
+use App\Models\Category;    
+use App\Models\User; // <-- Pastikan ini diimpor
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -35,7 +37,12 @@ class ShopController extends Controller
     public function create()
     {
         if (Auth::user()->shop) return redirect()->route('shop.index');
-        return view('shop.create');
+        
+        // 1. Ambil semua kategori dari database
+        $categories = Category::all();
+        
+        // 2. Kirim variabel $categories ke view
+        return view('shop.create', compact('categories'));
     }
 
     public function store(Request $request)
@@ -55,13 +62,19 @@ class ShopController extends Controller
             'is_verified' => false, 
         ]);
 
-        $user = Auth::user();
+        // --- PERBAIKAN UTAMA DI SINI ---
+        // Mengganti $user = auth()->user(); menjadi User::findOrFail(Auth::id())
+        // untuk memastikan kita mendapat objek Model Eloquent yang valid.
+        
+        $user = User::findOrFail(Auth::id()); 
         $user->role = 'seller';
         $user->save();
 
         return redirect()->route('shop.index')->with('success', 'Selamat! Toko kamu berhasil dibuat.');
     }
 
+    // ... (Fungsi edit, update, show, orders, dll. tidak diubah) ...
+    
     public function edit()
     {
         $shop = Auth::user()->shop;
@@ -115,10 +128,10 @@ class ShopController extends Controller
         // Ambil order yang statusnya BUKAN pending (sudah checkout/bayar)
         // Urutkan dari yang terbaru
         $orders = Order::where('shop_id', $shop->id)
-                    ->where('status', '!=', 'pending') 
-                    ->with(['items.product', 'user'])
-                    ->latest()
-                    ->get();
+                     ->where('status', '!=', 'pending') 
+                     ->with(['items.product', 'user'])
+                     ->latest()
+                     ->get();
 
         return view('shop.orders', compact('orders'));
     }
@@ -137,14 +150,6 @@ class ShopController extends Controller
     {
         $shop = Auth::user()->shop;
         $order = Order::where('shop_id', $shop->id)->where('id', $id)->firstOrFail();
-
-        // Hanya bisa diproses jika status sudah 'pending' (sudah dibayar user tapi blm dikonfirmasi sistem) 
-        // atau kita anggap user transfer manual dan seller verifikasi.
-        // Di sistem kita, user klik "Sudah Bayar" -> status jadi 'processing'.
-        // Jadi seller tinggal melihat yg 'processing'.
-        
-        // Jika logic pembayaran otomatis: Status awal 'paid', seller ubah ke 'processing'.
-        // Jika manual: Status 'processing' (menunggu verifikasi seller).
         
         // Kita anggap seller memverifikasi barang siap dikemas
         $order->update(['status' => 'processing']);

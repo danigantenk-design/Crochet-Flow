@@ -9,7 +9,7 @@
         <img src="{{ asset('images/notxnobg.png') }}" 
              alt="CrochetFlow Logo" 
              class="h-8 w-8 object-contain">
-        CrochetFlow
+            CrochetFlow
     </a>
 </div>
 
@@ -51,7 +51,8 @@
                     {{-- ========================= --}}
                     {{-- =        PENJUAL        = --}}
                     {{-- ========================= --}}
-                    @elseif(request()->is('shop*') || request()->is('products*') || request()->is('open-shop*'))
+                    {{-- @elseif(request()->is('shop*') || request()->is('products*') || request()->is('open-shop*')) --}}
+                    @elseif(Auth::user()->shop && (request()->is('shop*') || request()->is('products*')))
                         
                         <x-nav-link :href="route('shop.index')" :active="request()->routeIs('shop.index')">
                             Dashboard
@@ -66,15 +67,15 @@
                         </x-nav-link>
 
                         {{-- [UPDATE UX] Link Preview Toko: Arahkan ke Halaman Publik --}}
-                        <x-nav-link :href="route('shops.show', Auth::user()->shop->id ?? '#')" target="_blank" title="Lihat tampilan toko di mata pembeli">
+                        <x-nav-link :href="route('shop.show', Auth::user()->shop->id ?? '#')" target="_blank" title="Lihat tampilan toko di mata pembeli">
                             👁️ Preview Toko
                         </x-nav-link>
 
-                        <div class="flex items-center ml-4 border-l pl-4">
+                        {{-- <div class="flex items-center ml-4 border-l pl-4">
                             <a href="{{ route('front.index') }}" class="text-xs font-bold text-gray-500 hover:text-pink-600 uppercase tracking-wide">
                                 &larr; Pembeli
                             </a>
-                        </div>
+                        </div> --}}
 
                     {{-- ========================= --}}
                     {{-- =        PEMBELI        = --}}

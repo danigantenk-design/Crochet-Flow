@@ -61,8 +61,6 @@ class User extends Authenticatable
 
     public function address(): HasOne
     {
-        // Asumsi: Kita ambil alamat pertama atau satu-satunya.
-        // Jika tabelnya 'user_addresses', Laravel akan otomatis mencari model UserAddress
         return $this->hasOne(UserAddress::class); 
     }
 }

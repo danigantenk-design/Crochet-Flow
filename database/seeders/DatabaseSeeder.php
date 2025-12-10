@@ -54,18 +54,51 @@ class DatabaseSeeder extends Seeder
             'recipient_name' => $buyer->full_name,
         ]);
 
-        // 5. Kategori
-        $categories = Category::factory(5)->create();
+        // 5. Kategori (Gunakan kode yang sudah diperbaiki untuk keunikan)
+        $categoryData = [
+            'amigurumi' => 'Amigurumi',
+            'aksesoris' => 'Aksesoris Rajut',
+            'dekorasi'  => 'Dekorasi Rumah',
+        ];
 
-        // 6. Produk (+ Langsung buatin Gambar)
-        // Buat 20 produk, masing-masing punya 1 gambar
-        foreach(range(1, 20) as $item) {
-            Product::factory()
-                ->has(ProductImage::factory()->count(1), 'images') // Relasi ke images
-                ->create([
-                    'shop_id' => $shop->id,
-                    'category_id' => $categories->random()->id,
-                ]);
-        }
+        $categories = collect($categoryData)->map(function ($name, $slug) {
+             return Category::create([
+                 'name' => $name,
+                 'slug' => $slug, // Menggunakan key array sebagai slug
+             ]);
+        });
+        $categories = new \Illuminate\Database\Eloquent\Collection($categories);
+
+        // 6. Produk (+ Langsung buatin Gambar BERDASARKAN KATEGORI)
+        
+        // Dapatkan objek Category spesifik
+        $amigurumiCat = $categories->where('slug', 'amigurumi')->first();
+        $aksesorisCat = $categories->where('slug', 'aksesoris')->first();
+        $dekorasiCat = $categories->where('slug', 'dekorasi')->first();
+        
+        // A. Buat 8 Produk Amigurumi (Mengambil Gambar dari folder /amigurumi)
+        Product::factory(4)
+            ->has(ProductImage::factory()->withImagesFrom('amigurumi')->count(1), 'images')
+            ->create([
+                'shop_id' => $shop->id,
+                'category_id' => $amigurumiCat->id,
+            ]);
+
+        // B. Buat 8 Produk Aksesoris (Mengambil Gambar dari folder /aksesoris)
+        Product::factory(10)
+            ->has(ProductImage::factory()->withImagesFrom('aksesoris')->count(1), 'images')
+            ->create([
+                'shop_id' => $shop->id,
+                'category_id' => $aksesorisCat->id,
+            ]);
+            
+        // C. Sisanya 4 Produk Pakaian
+        Product::factory(4)
+            ->has(ProductImage::factory()->withImagesFrom('dekorasi')->count(1), 'images')
+            ->create([
+                'shop_id' => $shop->id,
+                'category_id' => $dekorasiCat->id,
+            ]);
+    
     }
 }

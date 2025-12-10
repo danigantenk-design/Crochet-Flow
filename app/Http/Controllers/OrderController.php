@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage; // Tambahkan import Storage
 
 class OrderController extends Controller
 {
@@ -128,19 +129,17 @@ class OrderController extends Controller
         return view('dashboard', compact('orders'));
     }
 
-    // --- TAMBAHAN BARU ---
-
     // 4. Tampilkan Detail Order (Invoice)
     public function show($id)
-{
-    $order = Order::with(['items.product', 'shop'])
-                ->where('user_id', Auth::id())
-                ->where('id', $id)
-                ->firstOrFail();
+    {
+        $order = Order::with(['items.product', 'shop'])
+                    ->where('user_id', Auth::id())
+                    ->where('id', $id)
+                    ->firstOrFail();
 
-    // BENAR: Arahkan ke folder orders/show.blade.php
-    return view('shop.show', compact('order')); 
-}
+        // PERBAIKAN DI SINI: Mengarah ke 'orders.show' (Halaman Invoice Pembeli)
+        return view('orders.show', compact('order')); 
+    }
 
     // 5. Proses "Saya Sudah Bayar"
     public function markAsPaid($id)
@@ -149,7 +148,7 @@ class OrderController extends Controller
 
         if ($order->status == 'pending') {
             $order->update([
-                'status' => 'processing', // Ubah jadi processing (sedang dikemas)
+                'status' => 'processing',
                 'payment_status' => 'paid',
             ]);
 
@@ -158,39 +157,66 @@ class OrderController extends Controller
 
         return back()->with('error', 'Pesanan ini sudah dibayar atau status tidak valid.');
     }
-    // 6. Download File Digital (Protected)
+
+    // 6. Download File Digital (Fixed)
     public function downloadDigitalProduct($orderItemId)
     {
-        // 1. Cari Item berdasarkan ID
         $orderItem = OrderItem::with(['order', 'product'])->findOrFail($orderItemId);
 
-        // 2. Cek Kepemilikan (Apakah yang download adalah pembeli asli?)
+        // Validasi User & Status Bayar
         if ($orderItem->order->user_id !== Auth::id()) {
-            abort(403, 'Anda tidak memiliki akses ke pesanan ini.');
+            abort(403);
         }
-
-        // 3. Cek Status Pembayaran (Wajib Lunas)
         if ($orderItem->order->payment_status !== 'paid') {
             return back()->with('error', 'Silakan selesaikan pembayaran terlebih dahulu.');
         }
 
-        // 4. Cek Apakah Produk Memang Digital
-        if ($orderItem->product->product_type !== 'digital' || empty($orderItem->product->file_url)) {
-            return back()->with('error', 'Produk ini tidak memiliki file digital.');
-        }
-
-        // 5. Proses Download
-        // Karena di database kita simpan path lengkap "/storage/digital_products/...", 
-        // kita perlu bersihkan path-nya agar bisa dibaca fungsi Storage Laravel.
-        
-        // Hapus "/storage/" dari string untuk mendapatkan path relatif di disk 'public'
+        // Ambil path relatif (Hapus '/storage/')
         $relativePath = str_replace('/storage/', '', $orderItem->product->file_url);
 
-        // Cek fisik file
-        if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($relativePath)) {
-            return back()->with('error', 'File tidak ditemukan di server. Hubungi penjual.');
+        // Pastikan file ada di disk 'public'
+        if (!Storage::disk('public')->exists($relativePath)) {
+            return back()->with('error', 'File tidak ditemukan di server.');
         }
 
-        return \Illuminate\Support\Facades\Storage::disk('public')->download($relativePath);
+        // SOLUSI UTAMA: Gunakan path fisik + response()->download()
+        $fullPath = Storage::disk('public')->path($relativePath);
+        
+        return response()->download($fullPath);
     }
 }
+//     // 6. Download File Digital (Protected)
+//     public function downloadDigitalProduct($orderItemId)
+//     {
+//         // 1. Cari Item berdasarkan ID
+//         $orderItem = OrderItem::with(['order', 'product'])->findOrFail($orderItemId);
+
+//         // 2. Cek Kepemilikan
+//         if ($orderItem->order->user_id !== Auth::id()) {
+//             abort(403, 'Anda tidak memiliki akses ke pesanan ini.');
+//         }
+
+//         // 3. Cek Status Pembayaran
+//         if ($orderItem->order->payment_status !== 'paid') {
+//             return back()->with('error', 'Silakan selesaikan pembayaran terlebih dahulu.');
+//         }
+
+//         // 4. Cek Apakah Produk Memang Digital
+//         if ($orderItem->product->product_type !== 'digital' || empty($orderItem->product->file_url)) {
+//             return back()->with('error', 'Produk ini tidak memiliki file digital.');
+//         }
+
+//         // 5. Proses Download
+//         $relativePath = str_replace('/storage/', '', $orderItem->product->file_url);
+
+//         if (!Storage::disk('public')->exists($relativePath)) {
+//             return back()->with('error', 'File tidak ditemukan di server. Hubungi penjual.');
+//         }
+
+//         // Ambil full path fisik filenya
+//         $filePath = Storage::disk('public')->path($relativePath);
+
+//         // Return response download bawaan Laravel (Lebih dikenali IDE)
+//         return response()->download($filePath);
+//     }
+// }

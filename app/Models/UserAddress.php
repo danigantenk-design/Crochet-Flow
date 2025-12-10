@@ -9,20 +9,23 @@ class UserAddress extends Model
 {
     use HasFactory;
 
-    // Pastikan nama tabel sesuai database Anda
     protected $table = 'user_addresses';
 
-    protected $guarded = ['id'];
+    // Definisikan fillable agar aman dan postal_code bisa masuk
+    protected $fillable = [
+        'user_id',
+        'recipient_name',
+        'phone_number',
+        'full_address',
+        'postal_code', // <--- Pastikan ini ada
+        'label',       // <--- Pastikan ini ada
+        'city_id',
+        'is_primary'
+    ];
 
-    // Relasi balik ke User (Opsional, tapi bagus untuk dimiliki)
+    // Relasi ke User
     public function user()
     {
         return $this->belongsTo(User::class);
     }
-
-    public function address()
-{
-    return $this->hasOne(UserAddress::class);
-}
-
 }

@@ -1,4 +1,4 @@
-@extends('layouts.seller') {{-- Gunakan Layout Seller --}}
+@extends('layouts.seller') 
 
 @section('content')
     <div class="mb-6 flex justify-between items-end">

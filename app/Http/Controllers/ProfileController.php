@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
+use App\Models\UserAddress; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -10,12 +12,12 @@ use Illuminate\Http\RedirectResponse;
 class ProfileController extends Controller
 {
     /**
-     * Menampilkan profil user (Read Only).
+     * Menampilkan profil user dan daftar alamat.
      */
     public function show(Request $request): View
     {
-        // Load data user beserta alamat (jika ada)
-        $user = Auth::user()->load('address'); 
+        // Pastikan model User punya relasi 'addresses' (jamak)
+        $user = User::with('addresses')->findOrFail(Auth::id()); 
 
         return view('profile.show', [
             'user' => $user,
@@ -23,26 +25,24 @@ class ProfileController extends Controller
     }
 
     /**
-     * Menampilkan form edit profil.
+     * Form edit data diri utama.
      */
     public function edit(Request $request): View
     {
         return view('profile.edit', [
             'user' => $request->user(),
-            // Kita kirim data alamat agar form terisi otomatis jika sudah ada data
-            'address' => $request->user()->address, 
         ]);
     }
 
     /**
-     * Update Data Diri Utama (Nama & Email).
+     * Update Data Diri Utama.
      */
     public function update(Request $request): RedirectResponse
     {
         $request->validate([
             'full_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,'.Auth::id()],
-            'phone_number' => ['nullable', 'string', 'max:20'], // Tambahan untuk no HP user
+            'phone_number' => ['nullable', 'string', 'max:20'], 
         ]);
 
         $request->user()->update($request->only('full_name', 'email', 'phone_number'));
@@ -50,51 +50,93 @@ class ProfileController extends Controller
         return back()->with('status', 'profile-updated');
     }
 
-    /**
-     * Update Alamat Pengiriman.
-     */
-    public function updateAddress(Request $request): RedirectResponse
+    // ==========================================================
+    // LOGIKA ALAMAT (TAMBAH, EDIT, HAPUS)
+    // ==========================================================
+
+    public function createAddress(): View
+    {
+        return view('profile.address_create');
+    }
+
+    public function storeAddress(Request $request): RedirectResponse
     {
         $request->validate([
             'recipient_name' => 'required|string|max:255',
-            'phone_number'          => 'required|string|max:20',
+            'phone_number'   => 'required|string|max:20',
             'full_address'   => 'required|string|max:500',
-            // city_id nanti diintegrasikan dengan RajaOngkir, sementara nullable/string dulu
-            'city_id'        => 'nullable', 
+            'label'          => 'nullable|string|max:100', 
+            'postal_code'    => 'required|string|max:10', // Wajib Validasi
+            'city_id'        => 'nullable|integer',
         ]);
 
-        // Gunakan updateOrCreate: Jika belum ada alamat buat baru, jika ada update.
-        $request->user()->address()->updateOrCreate(
-            ['user_id' => $request->user()->id], // Kunci pencarian
-            [
-                'recipient_name' => $request->recipient_name,
-                'phone_number'          => $request->phone_number,
-                'full_address'   => $request->full_address,
-                'is_primary'     => true, // Default jadi alamat utama
-                // 'city_id'     => $request->city_id, (Nanti diaktifkan saat fitur ongkir)
-            ]
-        );
+        $user = Auth::id();
+        
+        // Cek apakah ini alamat pertama?
+        $isFirstAddress = !UserAddress::where('user_id', $user)->exists(); 
 
-        return back()->with('status', 'address-updated');
+        // 1. Ambil data dari request (JANGAN LUPA postal_code)
+        $data = $request->only('recipient_name', 'phone_number', 'full_address', 'label', 'postal_code', 'city_id');
+        
+        // 2. Set default label jika kosong
+        if (empty($data['label'])) {
+             $data['label'] = 'Rumah';
+        }
+        
+        // 3. Tambahkan data system
+        $data['user_id'] = $user;
+        $data['is_primary'] = $isFirstAddress;
+        
+        // 4. Simpan
+        UserAddress::create($data);
+
+        return redirect()->route('profile.show')->with('status', 'address-created');
     }
-   public function editAddress()
+
+    /**
+     * Menampilkan Form Edit Alamat (Menggunakan Model Binding)
+     * Pastikan route di web.php menggunakan parameter {id} -> /profile/address/{id}/edit
+     */
+    public function editAddress($id): View
     {
-        $user = auth()->user();
-        $user_addresses = $user->address;   // ambil alamat user
-
-        return view('profile.address_edit', compact('user', 'user_addresses'));
+        $address = UserAddress::where('user_id', Auth::id())->where('id', $id)->firstOrFail();
+        return view('profile.address_edit', compact('address'));
     }
 
-public function address()
-{
-    $user = auth()->user();
+    /**
+     * Update Alamat
+     */
+    public function updateAddress(Request $request, $id): RedirectResponse
+    {
+        $address = UserAddress::where('user_id', Auth::id())->where('id', $id)->firstOrFail();
 
-    // Ambil alamat user (opcional)
-    $user_addresses = $user->address; // atau $user->addresses()->first()
+        $request->validate([
+            'recipient_name' => 'required|string|max:255',
+            'phone_number'   => 'required|string|max:20',
+            'full_address'   => 'required|string|max:500',
+            'postal_code'    => 'required|string|max:10',
+            'label'          => 'nullable|string|max:100', 
+        ]);
+        
+        $data = $request->only('recipient_name', 'phone_number', 'full_address', 'label', 'postal_code');
 
-    return view('profile.address', compact('user', 'user_addresses'));
-}
+        if (empty($data['label'])) {
+            $data['label'] = 'Rumah';
+        }
 
+        $address->update($data);
+        
+        return redirect()->route('profile.show')->with('status', 'address-updated');
+    }
 
+    /**
+     * Hapus Alamat
+     */
+    public function destroyAddress($id): RedirectResponse
+    {
+        $address = UserAddress::where('user_id', Auth::id())->where('id', $id)->firstOrFail();
+        $address->delete();
 
+        return back()->with('status', 'address-deleted');
+    }
 }

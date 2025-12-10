@@ -63,17 +63,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/shop/orders/{id}/label', [ShopController::class, 'printLabel'])->name('shop.orders.label');
 
     // === PROFILE ROUTES ===
-// 1. Lihat Profil (Read Only)
-Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    // 1. Lihat Profil (Read Only)
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
 
+    // 2. Edit Akun (Nama, Email, HP User)
+    Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
-// 2. Edit Akun (Nama, Email, HP User)
-Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
-Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-
-// 3. Edit Alamat (Halaman Terpisah)
-Route::get('/profile/address', [ProfileController::class, 'editAddress'])->name('profile.address_edit');
-// Route::put('/profile/address', [ProfileController::class, 'updateAddress'])->name('profile.address.update');
+    // 3. Edit Alamat (Halaman Terpisah)
+    // === ROUTE ALAMAT (UPDATE) ===
+    // 1. Tampilkan Form Tambah Alamat
+    Route::get('/profile/address/create', [App\Http\Controllers\ProfileController::class, 'createAddress'])->name('profile.address_create');
+    
+    // 2. Proses Simpan Alamat (Pakai POST untuk data baru)
+    Route::post('/profile/address', [App\Http\Controllers\ProfileController::class, 'storeAddress'])->name('profile.address.store');
+    
+    // 3. Hapus Alamat
+    Route::delete('/profile/address/{id}', [App\Http\Controllers\ProfileController::class, 'destroyAddress'])->name('profile.address.destroy');
 
     // === SELLER / TOKO (Management) ===
     // Dashboard Toko
@@ -106,8 +112,6 @@ Route::get('/profile/address', [ProfileController::class, 'editAddress'])->name(
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/cart/add/{productId}', [CartController::class, 'store'])->name('cart.store');
     Route::delete('/cart/remove/{id}', [CartController::class, 'destroy'])->name('cart.destroy');
-
-    // Tambahkan ini di bawah route cart.store
     Route::patch('/cart/update/{id}', [CartController::class, 'update'])->name('cart.update');
 
     // Checkout

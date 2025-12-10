@@ -50,23 +50,44 @@
             </div>
 
             <div class="mt-8">
-                <div class="flex justify-between items-center mb-3 border-b pb-1">
-                    <h3 class="font-bold text-gray-500 text-sm uppercase">Alamat Pengiriman Utama</h3>
-                    <a href="{{ route('profile.address_edit') }}" class="text-pink-600 hover:text-pink-800 font-bold text-sm hover:underline">
-                        {{ $user->full_address ? 'Ubah Alamat' : '+ Tambah Alamat' }}
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="font-bold text-gray-800 text-lg">Daftar Alamat</h3>
+                    <a href="{{ route('profile.address_create') }}" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700 font-bold transition">
+                        + Tambah Alamat
                     </a>
                 </div>
                 
-                @if($user->address)
-                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                        <p class="font-bold text-gray-800 text-lg">{{ $user->address->recipient_name }}</p>
-                        <p class="text-gray-600 mb-1">{{ $user->address->phone_number }}</p>
-                        <p class="text-gray-700">{{ $user->address->full_address }}</p>
+                @if($user->addresses->isEmpty())
+                    <div class="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                        <p class="text-gray-500 italic mb-3">Belum ada alamat tersimpan.</p>
                     </div>
                 @else
-                    <div class="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                        <p class="text-gray-400 italic mb-2">Belum ada alamat tersimpan.</p>
-                        <a href="{{ route('profile.address_edit') }}" class="text-sm bg-pink-600 text-white px-3 py-1 rounded hover:bg-pink-700">Isi Alamat Sekarang</a>
+                    <div class="space-y-4">
+                        @foreach($user->addresses as $address)
+                        <div class="bg-white p-4 rounded-lg border {{ $address->is_primary ? 'border-pink-500 ring-1 ring-pink-500' : 'border-gray-200' }} shadow-sm relative group">
+                            
+                            @if($address->is_primary)
+                                <span class="absolute top-2 right-2 bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded font-bold">Utama</span>
+                            @endif
+
+                            <p class="font-bold text-gray-800">{{ $address->recipient_name }}</p>
+                            <p class="text-gray-600 text-sm mb-1">{{ $address->phone_number }}</p>
+                            <p class="text-gray-700 text-sm">{{ $address->full_address }}</p>
+
+                            <div class="mt-3 pt-3 border-t flex justify-end">
+                                <form action="{{ route('profile.address.destroy', $address->id) }}" method="POST" onsubmit="return confirm('Yakin hapus alamat ini?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-500 text-xs hover:text-red-700 font-bold flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Hapus Alamat
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        @endforeach
                     </div>
                 @endif
             </div>

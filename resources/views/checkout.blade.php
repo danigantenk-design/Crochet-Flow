@@ -66,11 +66,14 @@
                             </label>
                             @endforeach
                             
-                            <div class="mt-2 text-right">
-                                <a href="{{ route('profile.address.edit') }}" class="text-xs text-pink-600 font-bold hover:underline">
+                            <a href="{{ route('profile.show') }}" class="text-xs text-pink-600 font-bold hover:underline">
+                                + Tambah Alamat
+                            </a>
+                            {{-- <div class="mt-2 text-right">
+                                <a href="{{ route('profile.address_edit') }}" class="text-xs text-pink-600 font-bold hover:underline">
                                     + Kelola Alamat Lain
                                 </a>
-                            </div>
+                            </div> --}}
                         </div>
                     @endif
                 </div>

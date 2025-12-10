@@ -59,6 +59,13 @@ return [
             'throw' => false,
             'report' => false,
         ],
+        'dummy_images' => [
+            'driver' => 'local',
+            // 'root' harus menunjuk ke folder public/images/products
+            'root' => public_path('images/products'), 
+            'url' => env('APP_URL').'/images/products',
+            'visibility' => 'public',
+    ],
 
     ],
 
