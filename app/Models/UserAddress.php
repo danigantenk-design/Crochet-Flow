@@ -17,8 +17,8 @@ class UserAddress extends Model
         'recipient_name',
         'phone_number',
         'full_address',
-        'postal_code', // <--- Pastikan ini ada
-        'label',       // <--- Pastikan ini ada
+        'postal_code', 
+        'label',       
         'city_id',
         'is_primary'
     ];

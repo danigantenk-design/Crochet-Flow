@@ -20,6 +20,7 @@
 
     @include('layouts.navigation')
 
+    @guest
     <header class="bg-pink-100 py-16">
         <div class="container mx-auto px-4 text-center">
             <h1 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4 tracking-tight">
@@ -30,12 +31,13 @@
             </p>
         </div>
     </header>
+    @endguest
 
     <main class="container mx-auto px-4 py-8">
         
         <div class="mb-10">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-2xl font-bold text-gray-800">Jelajahi Kategori</h2>
+                <h2 class="text-2xl font-bold text-gray-800">Pilih Kategori</h2>
                 @if(request('category') || request('search'))
                     <a href="{{ route('front.index') }}" class="text-sm text-pink-600 font-semibold hover:underline">
                         Reset Filter
@@ -62,13 +64,13 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-8">
             @forelse($products as $product)
             <div class="bg-white rounded-xl shadow-sm hover:shadow-xl transition duration-300 overflow-hidden group border border-gray-100 flex flex-col h-full">
                 <div class="h-64 bg-gray-100 w-full overflow-hidden relative">
-                    <img src="{{ $product->images->first()->image_url ?? 'https://placehold.co/400' }}" 
-                         alt="{{ $product->name }}" 
-                         class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                    <img src="{{ $product->image_url }}" 
+                    alt="{{ $product->name }}" 
+                    class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
                     
                     <div class="absolute top-3 right-3">
                          @if($product->product_type == 'digital')

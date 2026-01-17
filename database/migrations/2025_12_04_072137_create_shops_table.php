@@ -32,6 +32,8 @@ public function up(): void
         
         // Status verifikasi toko
         $table->boolean('is_verified')->default(false);
+
+        $table->boolean('is_active')->default(false);
         
         // Info Bank (Nullable dulu, diisi saat mau cairkan dana)
         $table->string('bank_name')->nullable();

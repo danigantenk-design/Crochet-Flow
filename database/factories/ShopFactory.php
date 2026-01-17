@@ -20,8 +20,11 @@ class ShopFactory extends Factory
             'name' => $this->faker->company(),
             'slug' => $this->faker->slug(),
             'description' => $this->faker->paragraph(),
-            'city_id' => $this->faker->numberBetween(1, 500), // Random ID kota RajaOngkir
+            'city_id' => $this->faker->numberBetween(1, 500), 
             'is_verified' => true,
+
+            'phone' => $this->faker->phoneNumber,
+            'address' => $this->faker->address,
         ];
     }
 }

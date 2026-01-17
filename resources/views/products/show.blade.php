@@ -11,7 +11,7 @@
 
     @include('layouts.navigation')
 
-    <main class="container mx-auto px-4 py-8">
+    <main class="container mx-auto px-4 py-8 pb-20">
         
         <nav class="text-sm text-gray-500 mb-6">
             <a href="{{ route('front.index') }}" class="hover:text-pink-600">Home</a> 
@@ -31,11 +31,12 @@
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8">
                 
+                {{-- BAGIAN GAMBAR (DIPERBAIKI) --}}
                 <div class="p-6 bg-gray-50" 
-                     x-data="{ 
-                        activeImage: '{{ $product->images->first()->image_url ?? 'https://placehold.co/600x600?text=No+Image' }}' 
-                     }">
+                     {{-- Gunakan image_url dari Model agar otomatis pilih gambar yang benar --}}
+                     x-data="{ activeImage: '{{ $product->image_url }}' }">
                     
+                    {{-- Gambar Besar --}}
                     <div class="aspect-square w-full bg-white rounded-lg overflow-hidden border border-gray-200 mb-4 relative group">
                         <img :src="activeImage" 
                              alt="{{ $product->name }}" 
@@ -54,18 +55,34 @@
                         </div>
                     </div>
 
-                    @if($product->images->count() > 1)
-                        <div class="flex gap-2 overflow-x-auto pb-2">
+                    {{-- Gallery Thumbnails --}}
+                    <div class="flex gap-2 overflow-x-auto pb-2">
+                        
+                        {{-- 1. Thumbnail Gambar Utama (Wajib Ada) --}}
+                        <button @click="activeImage = '{{ $product->image_url }}'" 
+                                class="w-20 h-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition focus:outline-none bg-white"
+                                :class="activeImage === '{{ $product->image_url }}' ? 'border-pink-600 ring-1 ring-pink-600' : 'border-gray-200 hover:border-gray-400'">
+                            <img src="{{ $product->image_url }}" class="w-full h-full object-cover">
+                        </button>
+
+                        {{-- 2. Thumbnail Gambar Tambahan (Jika Ada) --}}
+                        @if($product->images && $product->images->count() > 0)
                             @foreach($product->images as $image)
-                                <button @click="activeImage = '{{ $image->image_url }}'" 
-                                        class="w-20 h-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition focus:outline-none"
-                                        :class="activeImage === '{{ $image->image_url }}' ? 'border-pink-600 ring-1 ring-pink-600' : 'border-gray-200 hover:border-gray-400'">
-                                    <img src="{{ $image->image_url }}" class="w-full h-full object-cover">
+                                {{-- Logic URL aman --}}
+                                @php 
+                                    $imgUrl = \Illuminate\Support\Str::startsWith($image->image_url, 'http') ? $image->image_url : asset($image->image_url);
+                                @endphp
+
+                                <button @click="activeImage = '{{ $imgUrl }}'" 
+                                        class="w-20 h-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition focus:outline-none bg-white"
+                                        :class="activeImage === '{{ $imgUrl }}' ? 'border-pink-600 ring-1 ring-pink-600' : 'border-gray-200 hover:border-gray-400'">
+                                    <img src="{{ $imgUrl }}" class="w-full h-full object-cover">
                                 </button>
                             @endforeach
-                        </div>
-                    @endif
+                        @endif
+                    </div>
                 </div>
+                {{-- AKHIR BAGIAN GAMBAR --}}
 
                 <div class="p-6 md:p-8 flex flex-col justify-center">
                     
@@ -136,8 +153,67 @@
             </div>
         </div>
 
+        <div class="mt-12 bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                Ulasan Pembeli
+                <span class="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                    {{ $product->reviews->count() }} Ulasan
+                </span>
+            </h2>
+
+            <div class="flex flex-col md:flex-row items-center gap-4 md:gap-8 mb-8 bg-pink-50 p-6 rounded-xl border border-pink-100">
+                <div class="text-center">
+                    <span class="text-5xl font-extrabold text-gray-900">{{ $product->average_rating }}</span>
+                    <div class="text-yellow-400 text-xl mt-1 tracking-wide">
+                        @for($i=1; $i<=5; $i++)
+                            <span>{{ $i <= round($product->average_rating) ? '★' : '☆' }}</span>
+                        @endfor
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1 font-medium">dari 5 bintang</p>
+                </div>
+                <div class="hidden md:block h-12 w-px bg-pink-200"></div>
+                <div class="text-sm text-gray-600 text-center md:text-left">
+                    <p>Semua ulasan di bawah ini berasal dari pembeli yang telah terverifikasi melakukan transaksi sukses di CrochetFlow.</p>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                @forelse($product->reviews as $review)
+                    <div class="border-b border-gray-100 pb-6 last:border-0 last:pb-0">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 uppercase">
+                                    {{-- Menggunakan 'name' untuk keamanan jika 'full_name' tidak ada --}}
+                                    {{ substr($review->user->name ?? 'User', 0, 2) }}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-gray-800 text-sm">{{ $review->user->name }}</p>
+                                    <div class="flex text-yellow-400 text-xs">
+                                        @for($i=1; $i<=5; $i++)
+                                            <span>{{ $i <= $review->rating ? '★' : '☆' }}</span>
+                                        @endfor
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="text-xs text-gray-400">{{ $review->created_at->format('d M Y') }}</span>
+                        </div>
+                        
+                        <div class="pl-13 ml-12"> <p class="text-gray-600 text-sm leading-relaxed bg-gray-50 p-3 rounded-lg border border-gray-50">
+                                {{ $review->comment }}
+                            </p>
+                        </div>
+                    </div>
+                @empty
+                    <div class="text-center py-12 flex flex-col items-center justify-center">
+                        <div class="text-4xl mb-2">💬</div>
+                        <p class="text-gray-500 font-medium">Belum ada ulasan untuk produk ini.</p>
+                        <p class="text-xs text-gray-400 mt-1">Jadilah yang pertama membeli dan memberikan ulasan!</p>
+                    </div>
+                @endforelse
+            </div>
+        </div>
+
     </main>
 
-    {{-- @include('layouts.footer') --}}
 </body>
 </html>

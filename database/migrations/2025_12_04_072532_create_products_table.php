@@ -6,53 +6,41 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
-{
-    Schema::create('products', function (Blueprint $table) {
-        $table->id();
-        
-        // Relasi ke Toko & Kategori
-        $table->foreignId('shop_id')->constrained()->onDelete('cascade');
-        $table->foreignId('category_id')->constrained()->onDelete('cascade');
-        
-        $table->string('name');
-        
-        // Saya tambahkan slug agar URL produk cantik (contoh: /product/pola-baju-anak)
-        $table->string('slug')->unique(); 
-        
-        $table->text('description');
-        
-        // Decimal(12, 2) mendukung angka hingga ratusan miliar dengan 2 desimal (aman untuk Rupiah)
-        $table->decimal('price', 12, 2); 
-        
-        $table->integer('stock');
-        
-        // Berat dalam gram (penting untuk API RajaOngkir)
-        $table->integer('weight');
-        
-        // Pembeda barang fisik atau download file
-        $table->enum('product_type', ['physical', 'digital'])->default('physical');
-        
-        // Default 0 saat produk baru dibuat
-        $table->integer('sold_count')->default(0);
-        
-        // Link file jika digital (Nullable)
-        $table->string('file_url')->nullable();
-        
-        // Status produk tampil/tidak
-        $table->boolean('is_active')->default(true);
-        
-        $table->timestamps();
-        $table->softDeletes(); // Fitur "Sampah" agar data tidak hilang permanen
-    });
-}
+    {
+        Schema::create('products', function (Blueprint $table) {
+            $table->id();
+            
+            // Relasi
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+            
+            // PENTING: Saya buat nullable dulu biar ga error kalau kategori belum dipilih/dibuat
+            $table->foreignId('category_id')->nullable()->constrained()->onDelete('set null');
+            
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->text('description');
+            
+            // Decimal aman untuk Rupiah
+            $table->decimal('price', 12, 2); 
+            $table->integer('stock');
+            
+            // TAMBAHAN PENTING: Kolom Image Utama (Sesuai Controller)
+            $table->string('image')->nullable();
 
-    /**
-     * Reverse the migrations.
-     */
+            // Berat (gram). Saya kasih default 100gr supaya tidak error kalau form kosong
+            $table->integer('weight')->default(100);
+            
+            $table->enum('product_type', ['physical', 'digital'])->default('physical');
+            $table->integer('sold_count')->default(0);
+            $table->string('file_url')->nullable();
+            $table->boolean('is_active')->default(true);
+            
+            $table->timestamps();
+            $table->softDeletes(); 
+        });
+    }
+
     public function down(): void
     {
         Schema::dropIfExists('products');

@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CartItem;
 use App\Models\Order;
+use App\Models\CartItem;
 use App\Models\OrderItem;
 use App\Models\UserAddress;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage; // Tambahkan import Storage
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage; 
 
 class OrderController extends Controller
 {
@@ -27,72 +29,73 @@ class OrderController extends Controller
             return redirect()->route('cart.index');
         }
 
-        // Grouping Item Berdasarkan Toko
+        // Cek apakah ada produk fisik
+        $hasPhysicalProduct = $cartItems->contains(function ($item) {
+            return $item->product->product_type === 'physical';
+        });
+
+        $isDigitalOnly = !$hasPhysicalProduct;
+
         $groupedCartItems = $cartItems->groupBy(function ($item) {
             return $item->product->shop->id;
         });
 
-        // Ambil alamat user
         $addresses = UserAddress::where('user_id', $user->id)
                     ->orderBy('is_primary', 'desc')
                     ->get();
 
-        // Hitung Total + Ongkir Dummy
-        $itemTotal = 0;
-        foreach($cartItems as $item) {
-            $itemTotal += $item->product->price * $item->quantity;
-        }
+        $itemTotal = $cartItems->sum(function($item) {
+            return $item->product->price * $item->quantity;
+        });
 
-        // Logic Ongkir Dummy: Rp 10.000 per Toko
-        $shippingCostPerShop = 10000; 
+        // Jika hanya digital, ongkir Rp 0
+        $shippingCostPerShop = $isDigitalOnly ? 0 : 10000; 
         $totalShippingCost = $groupedCartItems->count() * $shippingCostPerShop;
 
         $grandTotal = $itemTotal + $totalShippingCost;
 
-        return view('checkout', compact('groupedCartItems', 'addresses', 'itemTotal', 'totalShippingCost', 'grandTotal'));
+        return view('checkout', compact('groupedCartItems', 'addresses', 'itemTotal', 'totalShippingCost', 'grandTotal', 'isDigitalOnly'));
     }
 
     // 2. Proses Checkout (Buat Order)
     public function store(Request $request)
     {
-        $request->validate([
-            'address_id' => 'required|exists:user_addresses,id',
-        ]);
-
         $user = Auth::user();
-        $address = UserAddress::find($request->address_id);
-        
-        $addressSnapshot = "{$address->recipient_name} ({$address->phone_number}) \n{$address->full_address}";
+        $selectedIds = explode(',', $request->selected_items);
 
-        $cartItems = CartItem::with('product')->where('user_id', $user->id)->get();
+        $cartItems = CartItem::with('product')
+                        ->where('user_id', $user->id)
+                        ->whereIn('id', $selectedIds)
+                        ->get();
 
-        if ($cartItems->isEmpty()) {
-            return back()->with('error', 'Keranjang kosong.');
+        if ($cartItems->isEmpty()) return back()->with('error', 'Tidak ada barang.');
+
+        // Cek tipe pesanan
+        $hasPhysical = $cartItems->contains(fn($item) => $item->product->product_type === 'physical');
+
+        // Validasi alamat HANYA jika ada produk fisik
+        if ($hasPhysical) {
+            $request->validate(['address_id' => 'required|exists:user_addresses,id']);
         }
 
-        $groupedItems = $cartItems->groupBy(function ($item) {
-            return $item->product->shop_id;
-        });
-
-        $shippingCostPerShop = 10000;
+        $address = UserAddress::find($request->address_id);
+        $groupedItems = $cartItems->groupBy(fn($item) => $item->product->shop_id);
 
         DB::beginTransaction();
         try {
-            
             foreach ($groupedItems as $shopId => $items) {
-                $shopItemTotal = 0;
-                foreach ($items as $item) {
-                    $shopItemTotal += $item->product->price * $item->quantity;
-                }
+                $shopHasPhysical = $items->contains(fn($i) => $i->product->product_type === 'physical');
+                $shippingCost = $shopHasPhysical ? 10000 : 0;
+                $shopItemTotal = $items->sum(fn($i) => $i->product->price * $i->quantity);
 
                 $order = Order::create([
                     'user_id' => $user->id,
                     'shop_id' => $shopId,
                     'invoice_number' => 'INV/' . date('Ymd') . '/' . strtoupper(Str::random(5)),
                     'status' => 'pending',
-                    'total_price' => $shopItemTotal + $shippingCostPerShop, 
-                    'shipping_cost' => $shippingCostPerShop, 
-                    'shipping_address_snapshot' => $addressSnapshot,
+                    'total_price' => $shopItemTotal + $shippingCost,
+                    'shipping_cost' => $shippingCost,
+                    'shipping_address_snapshot' => $address ? $address->full_address : 'Digital Product (No Shipping)',
                     'payment_status' => 'pending',
                 ]);
 
@@ -106,15 +109,12 @@ class OrderController extends Controller
                 }
             }
 
-            CartItem::where('user_id', $user->id)->delete();
-
+            CartItem::where('user_id', $user->id)->whereIn('id', $selectedIds)->delete();
             DB::commit();
-
-            return redirect()->route('dashboard')->with('success', 'Order berhasil dibuat! Silakan lakukan pembayaran.');
-
+            return redirect()->route('dashboard')->with('success', 'Order berhasil dibuat!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return back()->with('error', 'Gagal: ' . $e->getMessage());
         }
     }
 
@@ -137,86 +137,182 @@ class OrderController extends Controller
                     ->where('id', $id)
                     ->firstOrFail();
 
-        // PERBAIKAN DI SINI: Mengarah ke 'orders.show' (Halaman Invoice Pembeli)
         return view('orders.show', compact('order')); 
     }
 
-    // 5. Proses "Saya Sudah Bayar"
-    public function markAsPaid($id)
+    // 5. Proses "Saya Sudah Bayar" (Upload Bukti)
+    public function markAsPaid(Request $request, Order $order)
     {
-        $order = Order::where('user_id', Auth::id())->where('id', $id)->firstOrFail();
+        // 1. Validasi Input Gambar
+        $request->validate([
+            'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048', 
+        ]);
 
-        if ($order->status == 'pending') {
-            $order->update([
-                'status' => 'processing',
-                'payment_status' => 'paid',
-            ]);
-
-            return back()->with('success', 'Terima kasih! Pembayaran terkonfirmasi. Penjual akan segera memproses pesananmu.');
+        // 2. Pastikan yang upload adalah pemilik order (Logika Loose Comparison !=)
+        if (Auth::id() != $order->user_id) {
+            abort(403, 'Anda tidak memiliki akses ke pesanan ini.');
         }
 
-        return back()->with('error', 'Pesanan ini sudah dibayar atau status tidak valid.');
+        // 3. Simpan Gambar
+        if ($request->hasFile('payment_proof')) {
+            $path = $request->file('payment_proof')->store('payment-proofs', 'public');
+            
+            // Simpan path ke database
+            $order->update([
+                'payment_proof' => $path,
+                'status' => 'waiting_verification',
+            ]);
+        }
+
+        return back()->with('success', 'Bukti pembayaran berhasil dikirim! Menunggu verifikasi.');
     }
 
-    // 6. Download File Digital (Fixed)
+    // 6. Download File Digital
     public function downloadDigitalProduct($orderItemId)
     {
         $orderItem = OrderItem::with(['order', 'product'])->findOrFail($orderItemId);
 
         // Validasi User & Status Bayar
-        if ($orderItem->order->user_id !== Auth::id()) {
+        if ($orderItem->order->user_id != Auth::id()) {
             abort(403);
         }
-        if ($orderItem->order->payment_status !== 'paid') {
+        
+        // Hanya boleh download jika processing, shipped, atau completed
+        // (Tergantung kebijakanmu, biasanya setelah 'paid')
+        if (!in_array($orderItem->order->status, ['processing', 'shipped', 'completed']) && $orderItem->order->payment_status != 'paid') {
             return back()->with('error', 'Silakan selesaikan pembayaran terlebih dahulu.');
         }
 
-        // Ambil path relatif (Hapus '/storage/')
+        // Ambil path relatif
         $relativePath = str_replace('/storage/', '', $orderItem->product->file_url);
 
-        // Pastikan file ada di disk 'public'
+        // Pastikan file ada
         if (!Storage::disk('public')->exists($relativePath)) {
             return back()->with('error', 'File tidak ditemukan di server.');
         }
 
-        // SOLUSI UTAMA: Gunakan path fisik + response()->download()
         $fullPath = Storage::disk('public')->path($relativePath);
         
         return response()->download($fullPath);
     }
+
+    // 7. Batalkan Pesanan
+    public function cancel($id)
+    {
+        $order = Order::with('items.product')->where('user_id', Auth::id())->where('id', $id)->firstOrFail();
+
+        // Cek Status: Hanya boleh cancel jika masih pending
+        if ($order->status == 'pending') {
+            
+            DB::transaction(function () use ($order) {
+                // 1. Kembalikan Stok Barang (Restock)
+                foreach ($order->items as $item) {
+                    if ($item->product) {
+                        $item->product->increment('stock', $item->quantity);
+                        $item->product->decrement('sold_count', $item->quantity);
+                    }
+                }
+
+                // 2. Ubah Status jadi Cancelled
+                $order->update(['status' => 'cancelled']);
+            });
+
+            return back()->with('success', 'Pesanan berhasil dibatalkan. Stok barang telah dikembalikan.');
+        }
+
+        return back()->with('error', 'Pesanan tidak dapat dibatalkan karena sudah diproses atau dikirim.');
+    }
+    // Method untuk Pembeli konfirmasi "Pesanan Diterima"
+    public function markAsCompleted(Request $request, $id)
+    {
+        $order = Order::with(['shop', 'items.product'])->where('user_id', Auth::id())->where('id', $id)->firstOrFail();
+
+        // Digital bisa langsung diselesaikan setelah paid, Fisik harus shipped dulu
+        $canComplete = ($order->status == 'shipped') || 
+                    ($order->items->every(fn($i) => $i->product->product_type == 'digital') && $order->payment_status == 'paid');
+
+        if ($canComplete) {
+            DB::transaction(function () use ($order) {
+                $order->update(['status' => 'completed']);
+                
+                $sellerUserId = $order->shop->user_id;
+                $wallet = Wallet::firstOrCreate(['user_id' => $sellerUserId], ['balance' => 0]);
+
+                $totalNetIncome = 0;
+
+                foreach ($order->items as $item) {
+                    $price = $item->price_at_purchase * $item->quantity;
+                    
+                    // Terapkan Rate Komisi
+                    $rate = ($item->product->product_type === 'digital') ? 0.15 : 0.10;
+                    
+                    $commission = $price * $rate;
+                    $net = $price - $commission;
+                    
+                    $totalNetIncome += $net;
+                }
+
+                // Tambahkan ongkir utuh ke penjual (biasanya ongkir tidak dipotong komisi)
+                $totalNetIncome += $order->shipping_cost;
+
+                $wallet->increment('balance', $totalNetIncome);
+
+                WalletTransaction::create([
+                    'wallet_id'      => $wallet->id,
+                    'type'           => 'credit', 
+                    'amount'         => $totalNetIncome,
+                    'description'    => 'Penjualan ' . $order->invoice_number . ' (Potongan Komisi Berhasil)',
+                    'reference_id'   => $order->id,
+                    'reference_type' => 'order'
+                ]);
+            });
+
+            return back()->with('success', 'Pesanan selesai! Dana (setelah potongan komisi) telah masuk ke saldo penjual.');
+        }
+
+        return back()->with('error', 'Pesanan belum dapat diselesaikan.');
+    }
+
+    public function confirmReceived(Order $order)
+{
+    // 1. Keamanan: Pastikan yang klik adalah pemilik pesanan
+    if ($order->user_id !== Auth::id()) {
+        abort(403);
+    }
+
+    // 2. Pastikan statusnya memang sedang dikirim
+    if ($order->status !== 'shipped') {
+        return back()->with('error', 'Pesanan belum dalam pengiriman.');
+    }
+
+    DB::transaction(function () use ($order) {
+        // 3. Update status pesanan jadi Selesai
+        $order->update([
+            'status' => 'completed'
+        ]);
+
+        // 4. Hitung Pendapatan Bersih (Total - Fee Admin jika ada)
+        // Gunakan fungsi calculateNetIncome() yang pernah kita buat di Model Order
+        $netAmount = $order->calculateNetIncome();
+
+        // 5. Masukkan ke Dompet (Wallet) Penjual
+        $sellerWallet = Wallet::firstOrCreate(
+            ['user_id' => $order->shop->user_id],
+            ['balance' => 0]
+        );
+        $sellerWallet->increment('balance', $netAmount);
+
+        // 6. Catat riwayat transaksi saldo
+        WalletTransaction::create([
+            'wallet_id' => $sellerWallet->id,
+            'type' => 'credit',
+            'amount' => $netAmount,
+            'description' => 'Dana cair dari pesanan fisik #' . $order->invoice_number,
+            'reference_id' => $order->id,
+            'reference_type' => 'order'
+        ]);
+    });
+
+    return back()->with('success', 'Pesanan selesai! Terima kasih telah berbelanja di CrochetFlow.');
 }
-//     // 6. Download File Digital (Protected)
-//     public function downloadDigitalProduct($orderItemId)
-//     {
-//         // 1. Cari Item berdasarkan ID
-//         $orderItem = OrderItem::with(['order', 'product'])->findOrFail($orderItemId);
-
-//         // 2. Cek Kepemilikan
-//         if ($orderItem->order->user_id !== Auth::id()) {
-//             abort(403, 'Anda tidak memiliki akses ke pesanan ini.');
-//         }
-
-//         // 3. Cek Status Pembayaran
-//         if ($orderItem->order->payment_status !== 'paid') {
-//             return back()->with('error', 'Silakan selesaikan pembayaran terlebih dahulu.');
-//         }
-
-//         // 4. Cek Apakah Produk Memang Digital
-//         if ($orderItem->product->product_type !== 'digital' || empty($orderItem->product->file_url)) {
-//             return back()->with('error', 'Produk ini tidak memiliki file digital.');
-//         }
-
-//         // 5. Proses Download
-//         $relativePath = str_replace('/storage/', '', $orderItem->product->file_url);
-
-//         if (!Storage::disk('public')->exists($relativePath)) {
-//             return back()->with('error', 'File tidak ditemukan di server. Hubungi penjual.');
-//         }
-
-//         // Ambil full path fisik filenya
-//         $filePath = Storage::disk('public')->path($relativePath);
-
-//         // Return response download bawaan Laravel (Lebih dikenali IDE)
-//         return response()->download($filePath);
-//     }
-// }
+}

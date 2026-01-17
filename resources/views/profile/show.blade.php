@@ -52,7 +52,7 @@
             <div class="mt-8">
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
                     <h3 class="font-bold text-gray-800 text-lg">Daftar Alamat</h3>
-                    <a href="{{ route('profile.address_create') }}" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700 font-bold transition">
+                    <a href="{{ route('profile.address.create') }}" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-700 font-bold transition">
                         + Tambah Alamat
                     </a>
                 </div>

@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Shop;
 use App\Models\Order;
 use App\Models\Shipment;
-use App\Models\Category;    
-use App\Models\User; // <-- Pastikan ini diimpor
+use App\Models\Category;
+use App\Models\User; 
+use App\Models\Wallet; // Jangan lupa import Wallet
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class ShopController extends Controller
 {
@@ -27,9 +29,16 @@ class ShopController extends Controller
         if (!$shop->is_verified) return view('shop.pending');
 
         $products = $shop->products()->latest()->get();
+        
         // Hitung ringkasan order
-        $ordersCount = Order::where('shop_id', $shop->id)->where('status', '!=', 'pending')->count();
-        $income = Order::where('shop_id', $shop->id)->where('payment_status', 'paid')->sum('total_price');
+        $ordersCount = Order::where('shop_id', $shop->id)
+                            ->whereIn('status', ['waiting_verification', 'processing']) // Hanya yang butuh aksi
+                            ->count();
+                            
+        // Hitung pendapatan (hanya dari yang sudah Paid)
+        $income = Order::where('shop_id', $shop->id)
+                       ->where('payment_status', 'paid')
+                       ->sum('total_price');
 
         return view('shop.index', compact('shop', 'products', 'ordersCount', 'income'));
     }
@@ -38,21 +47,29 @@ class ShopController extends Controller
     {
         if (Auth::user()->shop) return redirect()->route('shop.index');
         
-        // 1. Ambil semua kategori dari database
         $categories = Category::all();
-        
-        // 2. Kirim variabel $categories ke view
         return view('shop.create', compact('categories'));
     }
 
     public function store(Request $request)
     {
+        // 1. Validasi
         $request->validate([
             'name' => 'required|string|max:255|unique:shops,name',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'description' => 'nullable|string',
+            'phone' => 'required|numeric|digits_between:10,15',      
+            'address' => 'required|string|min:10',
             'city_id' => 'required|integer', 
         ]);
 
+        // 2. Upload Gambar
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('shop-images', 'public');
+        }
+
+        // 3. Simpan Database (SUDAH DIPERBAIKI: Masukkan phone, address, image)
         Shop::create([
             'user_id' => Auth::id(),
             'name' => $request->name,
@@ -60,45 +77,68 @@ class ShopController extends Controller
             'description' => $request->description,
             'city_id' => $request->city_id,
             'is_verified' => false, 
+            'is_active' => 0,
+            
+            // Data Penting yang kemarin error
+            'image' => $imagePath,       
+            'phone' => $request->phone,   
+            'address' => $request->address,
         ]);
-
-        // --- PERBAIKAN UTAMA DI SINI ---
-        // Mengganti $user = auth()->user(); menjadi User::findOrFail(Auth::id())
-        // untuk memastikan kita mendapat objek Model Eloquent yang valid.
         
+        // Ubah role user jadi seller
         $user = User::findOrFail(Auth::id()); 
         $user->role = 'seller';
         $user->save();
 
-        return redirect()->route('shop.index')->with('success', 'Selamat! Toko kamu berhasil dibuat.');
+        return redirect()->route('dashboard')->with('success', 'Toko berhasil didaftarkan! Menunggu verifikasi Admin.');
     }
 
-    // ... (Fungsi edit, update, show, orders, dll. tidak diubah) ...
-    
     public function edit()
     {
         $shop = Auth::user()->shop;
         return view('shop.edit', compact('shop'));
     }
 
+    // UPDATE PROFIL & REKENING BANK
     public function update(Request $request)
     {
         $shop = Auth::user()->shop;
+
         $request->validate([
             'name' => 'required|string|max:255|unique:shops,name,'.$shop->id,
-            'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'description' => 'nullable|string',
+            'phone' => 'required|numeric',
+            'address' => 'required|string',
+            'image' => 'nullable|image|max:2048',
+            // Validasi Bank
+            'bank_name' => 'nullable|string',
+            'account_number' => 'nullable|numeric',
+            'account_holder' => 'nullable|string',
         ]);
 
+        // Update Info Dasar
         $shop->name = $request->name;
+        $shop->slug = Str::slug($request->name);
         $shop->description = $request->description;
+        $shop->phone = $request->phone;
+        $shop->address = $request->address;
+
+        // Update Info Bank (PENTING untuk Withdraw)
+        $shop->bank_name = $request->bank_name;
+        $shop->account_number = $request->account_number;
+        $shop->account_holder = $request->account_holder;
         
-        if ($request->hasFile('logo')) {
-            $path = $request->file('logo')->store('shops', 'public');
-            $shop->logo_url = '/storage/' . $path;
+        // Update Gambar
+        if ($request->hasFile('image')) {
+            if ($shop->image) {
+                Storage::disk('public')->delete($shop->image);
+            }
+            $shop->image = $request->file('image')->store('shop-images', 'public');
         }
 
         $shop->save();
-        return redirect()->route('shop.index')->with('success', 'Profil toko berhasil diperbarui!');
+        
+        return redirect()->route('shop.index')->with('success', 'Profil toko & rekening berhasil diperbarui!');
     }
 
     // ==========================================
@@ -107,14 +147,12 @@ class ShopController extends Controller
     
     public function show($id)
     {
-        // Cari toko berdasarkan ID, load produknya
         $shop = Shop::with(['products' => function($query) {
             $query->where('is_active', true);
         }])->findOrFail($id);
 
-        return view('shops.show', compact('shop'));
+        return view('shop.show', compact('shop'));
     }
-
 
     // ==========================================
     // BAGIAN 3: MANAJEMEN PESANAN (CORE FEATURE)
@@ -125,18 +163,18 @@ class ShopController extends Controller
     {
         $shop = Auth::user()->shop;
         
-        // Ambil order yang statusnya BUKAN pending (sudah checkout/bayar)
-        // Urutkan dari yang terbaru
+        // Penjual HANYA boleh melihat pesanan yang statusnya:
+        // 'processing' (Perlu dikemas), 'shipped' (Dikirim), 'completed' (Selesai)
         $orders = Order::where('shop_id', $shop->id)
-                     ->where('status', '!=', 'pending') 
-                     ->with(['items.product', 'user'])
-                     ->latest()
-                     ->get();
+                      ->whereIn('status', ['processing', 'shipped', 'completed']) 
+                      ->with(['user', 'items.product']) 
+                      ->latest()
+                      ->paginate(10);
 
         return view('shop.orders', compact('orders'));
     }
 
-    // 2. Detail Pesanan (Untuk Proses/Input Resi)
+    // 2. Detail Pesanan
     public function showOrder($id)
     {
         $shop = Auth::user()->shop;
@@ -145,49 +183,80 @@ class ShopController extends Controller
         return view('shop.order-detail', compact('order'));
     }
 
-    // 3. Aksi: Proses Pesanan (Dikemas)
+    // 3. Proses Pesanan (Terima Order)
     public function processOrder($id)
     {
         $shop = Auth::user()->shop;
-        $order = Order::where('shop_id', $shop->id)->where('id', $id)->firstOrFail();
-        
-        // Kita anggap seller memverifikasi barang siap dikemas
-        $order->update(['status' => 'processing']);
+        $order = Order::where('shop_id', $shop->id)->findOrFail($id);
 
-        return back()->with('success', 'Status pesanan diubah menjadi: Sedang Dikemas.');
+        if ($order->status == 'waiting_verification') {
+            $order->update(['status' => 'processing']);
+            return back()->with('success', 'Pesanan diterima! Segera kemas barang.');
+        }
+
+        return back()->with('error', 'Status pesanan tidak valid.');
     }
 
-    // 4. Aksi: Kirim Pesanan (Input Resi)
+    // 4. Kirim Barang (Input Resi)
     public function shipOrder(Request $request, $id)
     {
         $request->validate([
             'tracking_number' => 'required|string|max:50',
-            'courier_code' => 'required|string|max:50'
+            'courier'         => 'required|string|max:50', 
         ]);
 
         $shop = Auth::user()->shop;
-        $order = Order::where('shop_id', $shop->id)->where('id', $id)->firstOrFail();
 
-        // Buat Data Pengiriman
+        // Pastikan order status processing
+        $order = Order::where('shop_id', $shop->id)
+                      ->where('id', $id)
+                      ->where('status', 'processing') 
+                      ->firstOrFail();
+
+        // Simpan Data Pengiriman
         Shipment::create([
-            'order_id' => $order->id,
+            'order_id'        => $order->id,
             'tracking_number' => $request->tracking_number,
-            'courier_code' => $request->courier_code,
-            'shipped_at' => now(),
+            'courier_code'    => $request->courier,
+            'status'          => 'shipping',
+            'service_type'    => 'REG'
         ]);
 
-        // Update Status Order
-        $order->update(['status' => 'shipped']);
+        // Update Order jadi Shipped & Simpan Resi di tabel Order juga (untuk display cepat)
+        $order->update([
+            'status' => 'shipped',
+            'tracking_number' => $request->tracking_number
+        ]);
 
-        return back()->with('success', 'Resi berhasil diinput! Pesanan berstatus: Dikirim.');
+        return back()->with('success', 'Barang berhasil dikirim! Resi telah disimpan.');
     }
 
-    // 5. Cetak Label Pengiriman
+    // 5. Cetak Label (Opsional)
     public function printLabel($id)
     {
         $shop = Auth::user()->shop;
         $order = Order::where('shop_id', $shop->id)->where('id', $id)->firstOrFail();
 
         return view('shop.shipping-label', compact('order', 'shop'));
+    }
+
+    // ==========================================
+    // BAGIAN 4: KEUANGAN (FINANCE)
+    // ==========================================
+
+    public function finance()
+    {
+        $user = Auth::user();
+
+        // Ambil/Buat Wallet otomatis jika belum ada
+        $wallet = Wallet::firstOrCreate(
+            ['user_id' => $user->id],
+            ['balance' => 0]
+        );
+
+        // Ambil Riwayat Transaksi
+        $transactions = $wallet->transactions()->latest()->paginate(10);
+
+        return view('shop.finance', compact('wallet', 'transactions'));
     }
 }

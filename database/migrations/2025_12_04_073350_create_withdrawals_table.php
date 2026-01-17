@@ -9,32 +9,24 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
-{
-    Schema::create('withdrawals', function (Blueprint $table) {
-        $table->id();
-        
-        // Toko mana yang mengajukan?
-        $table->foreignId('shop_id')->constrained()->onDelete('cascade');
-        
-        // Jumlah penarikan
-        $table->decimal('amount', 12, 2);
-        
-        // Status pengajuan
-        $table->enum('status', ['requested', 'approved', 'rejected'])->default('requested');
-        
-        // Admin yang memproses (Nullable, karena saat request dibuat belum ada admin yang pegang)
-        $table->foreignId('admin_id')->nullable()->constrained('users');
-        
-        // Catatan admin (misal: "Nomor rekening salah")
-        $table->text('note')->nullable();
-        
-        // Kapan disetujui/ditolak
-        $table->timestamp('processed_at')->nullable();
-        
-        $table->timestamps();
-    });
-}
+    public function up()
+    {
+        Schema::create('withdrawals', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            
+            // Info Penarikan
+            $table->decimal('amount', 15, 2); // Jumlah yang ditarik
+            $table->string('status')->default('pending'); // pending, approved, rejected
+            
+            // Info Rekening Tujuan
+            $table->string('bank_name');      // BCA, BRI, dll
+            $table->string('account_number'); // 1234567890
+            $table->string('account_holder'); // Atas Nama Siapa
+            
+            $table->timestamps();
+        });
+    }
 
     /**
      * Reverse the migrations.

@@ -1,106 +1,85 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="id">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seller Center - CrochetFlow</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="//unpkg.com/alpinejs" defer></script>
-    <style>
-        [x-cloak] { display: none !important; }
-    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="bg-gray-100 font-sans antialiased" x-data="{ sidebarOpen: false }">
+<body class="bg-gray-50 font-sans text-gray-800">
 
-    <div class="flex h-screen overflow-hidden">
+    <div class="min-h-screen flex flex-col md:flex-row">
         
-        <aside class="w-64 bg-gray-900 text-white flex-shrink-0 hidden md:flex flex-col">
-            <div class="p-4 border-b border-gray-800 flex items-center gap-2">
-                <span class="text-2xl">🧶</span>
-                <span class="font-bold text-lg tracking-wide">Seller Center</span>
+        {{-- SIDEBAR SELLER --}}
+        <aside class="w-full md:w-64 bg-white border-r border-gray-200 flex flex-col md:h-screen md:fixed z-20">
+            {{-- Logo Area --}}
+            <div class="h-16 flex items-center justify-center border-b border-gray-100 bg-pink-600 text-white">
+                <span class="text-xl font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-store"></i> Seller Center
+                </span>
+            </div>
+
+            {{-- Info Toko Singkat --}}
+            <div class="p-4 border-b border-gray-100 flex items-center gap-3 bg-pink-50">
+                @if(Auth::user()->shop->image)
+                    <img src="{{ asset('storage/'.Auth::user()->shop->image) }}" class="w-10 h-10 rounded-full object-cover border border-pink-200">
+                @else
+                    <div class="w-10 h-10 rounded-full bg-pink-200 flex items-center justify-center text-pink-700 font-bold">
+                        {{ substr(Auth::user()->shop->name, 0, 1) }}
+                    </div>
+                @endif
+                <div class="overflow-hidden">
+                    <h4 class="font-bold text-sm truncate text-gray-800">{{ Auth::user()->shop->name }}</h4>
+                    <p class="text-xs text-green-600 flex items-center gap-1">
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span> Online
+                    </p>
+                </div>
             </div>
             
-            <nav class="flex-1 overflow-y-auto py-4">
-                <ul class="space-y-1 px-2">
-                    <li>
-                        <a href="{{ route('shop.index') }}" class="flex items-center px-4 py-3 rounded-md {{ request()->routeIs('shop.index') ? 'bg-pink-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
-                            <span class="mr-3">📊</span> Dashboard
-                        </a>
-                    </li>
+            {{-- Menu Navigasi --}}
+            <nav class="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+                
+                <p class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2">Bisnis Saya</p>
+                
+                <a href="{{ route('shop.index') }}" class="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors {{ request()->routeIs('shop.index') ? 'bg-pink-100 text-pink-700 font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-pink-600' }}">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i> Dashboard & Produk
+                </a>
+                
+                <a href="{{ route('shop.orders') }}" class="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors {{ request()->routeIs('shop.orders*') ? 'bg-pink-100 text-pink-700 font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-pink-600' }}">
+                    <i class="fa-solid fa-box-open w-5 text-center"></i> Pesanan Masuk
+                </a>
 
-                    <li>
-                        <a href="#" class="flex items-center px-4 py-3 rounded-md text-gray-400 hover:bg-gray-800 hover:text-white group">
-                            <span class="mr-3">🧶</span> Produk
-                        </a>
-                        <div class="pl-12 space-y-1 mt-1">
-                            <a href="{{ route('products.create') }}" class="block py-2 text-sm text-gray-500 hover:text-pink-400">Tambah Produk</a>
-                        </div>
-                    </li>
+                {{-- MENU KEUANGAN (YANG KEMARIN HILANG) --}}
+                <a href="{{ route('shop.finance') }}" class="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors {{ request()->routeIs('shop.finance*') || request()->routeIs('shop.withdraw*') ? 'bg-pink-100 text-pink-700 font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-pink-600' }}">
+                    <i class="fa-solid fa-wallet w-5 text-center"></i> Keuangan & Saldo
+                </a>
 
-                    <li>
-                        <a href="{{ route('shop.orders') }}" class="flex items-center px-4 py-3 rounded-md {{ request()->routeIs('shop.orders*') ? 'bg-pink-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
-                            <span class="mr-3">📦</span> Pesanan Masuk
-                        </a>
-                    </li>
+                <p class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6">Pengaturan</p>
 
-                    <li>
-                        <a href="{{ route('shop.edit') }}" class="flex items-center px-4 py-3 rounded-md {{ request()->routeIs('shop.edit') ? 'bg-pink-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
-                            <span class="mr-3">⚙️</span> Pengaturan Toko
-                        </a>
-                    </li>
-                </ul>
+                <a href="{{ route('shop.edit') }}" class="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors {{ request()->routeIs('shop.edit') ? 'bg-pink-100 text-pink-700 font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-pink-600' }}">
+                    <i class="fa-solid fa-gear w-5 text-center"></i> Profil Toko
+                </a>
+
+                <a href="{{ route('front.index') }}" target="_blank" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-pink-600 transition-colors">
+                    <i class="fa-solid fa-earth-americas w-5 text-center"></i> Lihat Website
+                </a>
             </nav>
 
-            <div class="p-4 border-t border-gray-800">
-                <a href="{{ route('front.index') }}" class="flex items-center justify-center w-full bg-gray-800 hover:bg-gray-700 text-white py-2 rounded text-sm transition">
-                    &larr; Kembali ke Website
+            {{-- Tombol Keluar --}}
+            <div class="p-4 border-t border-gray-200">
+                <a href="{{ route('dashboard') }}" class="flex items-center gap-2 justify-center w-full px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+                    <i class="fa-solid fa-arrow-left"></i> Kembali ke Akun User
                 </a>
             </div>
         </aside>
 
-        <div class="flex-1 flex flex-col h-screen overflow-hidden">
-            
-            <header class="bg-white shadow-sm md:hidden flex justify-between items-center p-4">
-                <div class="font-bold text-gray-800">Seller Center</div>
-                <button @click="sidebarOpen = !sidebarOpen" class="text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                </button>
-            </header>
-
-            <div x-show="sidebarOpen" class="fixed inset-0 z-50 bg-gray-900 bg-opacity-50 md:hidden" @click="sidebarOpen = false"></div>
-            <div x-show="sidebarOpen" class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white transition transform md:hidden" 
-                 x-transition:enter="transition ease-out duration-300"
-                 x-transition:enter-start="-translate-x-full"
-                 x-transition:enter-end="translate-x-0"
-                 x-transition:leave="transition ease-in duration-300"
-                 x-transition:leave-start="translate-x-0"
-                 x-transition:leave-end="-translate-x-full">
-                 <div class="p-4 font-bold text-xl border-b border-gray-800">Menu Toko</div>
-                 <nav class="p-4 space-y-2">
-                    <a href="{{ route('shop.index') }}" class="block py-2 text-gray-300">Dashboard</a>
-                    <a href="{{ route('shop.orders') }}" class="block py-2 text-gray-300">Pesanan</a>
-                    <a href="{{ route('products.create') }}" class="block py-2 text-gray-300">Tambah Produk</a>
-                    <a href="{{ route('front.index') }}" class="block py-2 text-pink-400 font-bold mt-4">&larr; Kembali ke Web</a>
-                 </nav>
-            </div>
-
-            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
-                @if(session('success'))
-                    <div class="mb-4 bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded relative">
-                        {{ session('success') }}
-                    </div>
-                @endif
-                
-                @if(session('error'))
-                    <div class="mb-4 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded relative">
-                        {{ session('error') }}
-                    </div>
-                @endif
-
-                @yield('content')
-            </main>
-        </div>
+        {{-- KONTEN UTAMA --}}
+        <main class="flex-1 p-6 md:ml-64 bg-gray-50 min-h-screen">
+            @yield('content')
+        </main>
     </div>
+
 </body>
 </html>
