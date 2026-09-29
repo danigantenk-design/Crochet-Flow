@@ -15,18 +15,20 @@ class Order extends Model
     public function items() { return $this->hasMany(OrderItem::class); }
     public function shipment() { return $this->hasOne(Shipment::class); }
 
-    // Logika Hitung Total Pendapatan Bersih Penjual (Setelah Potongan Komisi)
+
+    public function getTotalCommission()
+    {
+        return $this->items->sum('commission_fee');
+    }
+
     public function calculateNetIncome()
     {
-        $totalNet = 0;
-        foreach ($this->items as $item) {
-            $price = $item->price_at_purchase * $item->quantity;
-            // 15% Digital, 10% Fisik
-            $rate = ($item->product->product_type === 'digital') ? 0.15 : 0.10;
-            $totalNet += ($price - ($price * $rate));
-        }
-        // Ongkir tidak dipotong komisi
-        return $totalNet + $this->shipping_cost;
+        return ($this->total_price - $this->getTotalCommission());
+    }
+
+    public function getAdminProfitAttribute()
+    {
+        return $this->getTotalCommission();
     }
 
     // Cek apakah pesanan ini 100% Digital
@@ -34,4 +36,7 @@ class Order extends Model
     {
         return $this->items->every(fn($item) => $item->product->product_type === 'digital');
     }
+    
+
+    
 }

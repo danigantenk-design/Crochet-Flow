@@ -32,16 +32,41 @@ class ShopController extends Controller
         
         // Hitung ringkasan order
         $ordersCount = Order::where('shop_id', $shop->id)
-                            ->whereIn('status', ['waiting_verification', 'processing']) // Hanya yang butuh aksi
+                            ->whereIn('status', ['processing'])
                             ->count();
-                            
-        // Hitung pendapatan (hanya dari yang sudah Paid)
-        $income = Order::where('shop_id', $shop->id)
-                       ->where('payment_status', 'paid')
-                       ->sum('total_price');
 
-        return view('shop.index', compact('shop', 'products', 'ordersCount', 'income'));
-    }
+        $wallet = \App\Models\Wallet::firstOrCreate(
+            ['user_id' => $user->id],
+            ['balance' => 0]
+        );
+                            
+        $income = Order::where('shop_id', $shop->id)
+                   ->where('status', 'completed')
+                   ->get()
+                   ->sum(function($order) {
+                       return $order->calculateNetIncome();
+                   });
+
+        $pendingIncome = Order::where('shop_id', $shop->id)
+                        ->whereIn('status', ['shipped'])
+                        ->where('payment_status', 'paid')
+                        ->get()
+                        ->sum(function($order) {
+                            return $order->calculateNetIncome();
+                        });
+
+        $totalIncome = Order::where('shop_id', $shop->id)
+                        ->where('status', 'completed')
+                        ->get()
+                        ->sum(fn($order) => $order->calculateNetIncome());
+
+        $ordersCount = Order::where('shop_id', $shop->id)
+                            ->where('status', 'processing')
+                            ->count();
+
+        return view('shop.index', compact('shop', 'products', 'ordersCount', 'income', 'totalIncome', 'pendingIncome', 'wallet'));
+}
+
 
     public function create()
     {
@@ -56,7 +81,7 @@ class ShopController extends Controller
         // 1. Validasi
         $request->validate([
             'name' => 'required|string|max:255|unique:shops,name',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'description' => 'nullable|string',
             'phone' => 'required|numeric|digits_between:10,15',      
             'address' => 'required|string|min:10',
@@ -109,7 +134,7 @@ class ShopController extends Controller
             'description' => 'nullable|string',
             'phone' => 'required|numeric',
             'address' => 'required|string',
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             // Validasi Bank
             'bank_name' => 'nullable|string',
             'account_number' => 'nullable|numeric',
@@ -247,6 +272,7 @@ class ShopController extends Controller
     public function finance()
     {
         $user = Auth::user();
+        $shop = $user->shop;
 
         // Ambil/Buat Wallet otomatis jika belum ada
         $wallet = Wallet::firstOrCreate(
@@ -257,6 +283,14 @@ class ShopController extends Controller
         // Ambil Riwayat Transaksi
         $transactions = $wallet->transactions()->latest()->paginate(10);
 
-        return view('shop.finance', compact('wallet', 'transactions'));
+                $pendingIncome = Order::where('shop_id', $shop->id)
+                        ->whereIn('status', ['shipped'])
+                        ->where('payment_status', 'paid')
+                        ->get()
+                        ->sum(function($order) {
+                            return $order->calculateNetIncome();
+                        });
+
+        return view('shop.finance', compact('wallet', 'transactions', 'pendingIncome'));
     }
 }

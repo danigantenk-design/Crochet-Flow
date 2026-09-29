@@ -76,12 +76,19 @@
                                                 <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 whitespace-nowrap">⏳ Menunggu Bayar</span>
                                             @elseif($order->status == 'processing')
                                                 <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold border border-blue-200 whitespace-nowrap">📦 Diproses</span>
+                                            @elseif($order->status == 'waiting_verification')
+                                                <span class="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-xs font-bold border border-gray-300 whitespace-nowrap">⏳ Menunggu Verifikasi</span>
                                             @elseif($order->status == 'shipped')
                                                 <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 whitespace-nowrap">🚚 Dikirim</span>
                                             @elseif($order->status == 'completed')
-                                                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border border-green-200 whitespace-nowrap">✅ Selesai</span>
-                                            @else
-                                                <span class="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-xs font-bold border border-gray-300 whitespace-nowrap">❌ Batal</span>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border border-green-200">✅ Selesai</span>
+                                                    
+                                                    {{-- Tombol Buka Modal/Halaman Ulasan --}}
+                                                    <a href="{{ route('orders.show', $order->id) }}#review-section" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-full text-xs font-bold transition">
+                                                        ⭐ Beri Ulasan
+                                                    </a>
+                                                </div>
                                             @endif
                                         </div>
 
@@ -98,7 +105,7 @@
                                                     </button>
                                                 </form>
                                             @elseif($order->status == 'pending' && !$order->payment_proof)
-                                                <a href="{{ route('orders.show', $order->id) }}" class="bg-pink-600 text-white px-4 py-2 rounded-full font-bold text-xs hover:bg-pink-700 shadow-sm transition whitespace-nowrap">💳 Bayar</a>
+                                                <a href="{{ route('orders.show', $order->id) }}" class="bg-pink-600 text-white px-4 py-2 rounded-full font-bold text-xs hover:bg-pink-700 shadow-sm transition whitespace-nowrap">💳 Konfirmasi Bayar</a>
                                             @elseif($isFullDigital && $canDownload)
                                                 <a href="{{ route('orders.show', $order->id) }}" class="bg-blue-600 text-white px-4 py-2 rounded-full font-bold text-xs hover:bg-blue-700 shadow-sm transition whitespace-nowrap">⬇️ Download PDF</a>
                                             @endif
@@ -112,7 +119,7 @@
                                 {{-- Thumbnail Produk --}}
                                 <div class="mt-4 pt-4 border-t border-gray-50 flex items-center gap-3">
                                     @if($order->items->first())
-                                        <img src="{{ $order->items->first()->product->image_url }}" class="w-12 h-12 rounded object-cover border bg-gray-50">
+                                        <img src="{{ $order->items->first()->product->image_url }}" fetchpriority="high" loading="lazy" class="w-12 h-12 rounded object-cover border bg-gray-50">
                                         <div class="flex flex-col">
                                             <span class="text-sm font-bold text-gray-700">{{ $order->items->first()->product->name }}</span>
                                             @if($order->items->count() > 1)

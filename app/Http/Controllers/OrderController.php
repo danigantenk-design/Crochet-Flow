@@ -70,10 +70,8 @@ class OrderController extends Controller
 
         if ($cartItems->isEmpty()) return back()->with('error', 'Tidak ada barang.');
 
-        // Cek tipe pesanan
         $hasPhysical = $cartItems->contains(fn($item) => $item->product->product_type === 'physical');
 
-        // Validasi alamat HANYA jika ada produk fisik
         if ($hasPhysical) {
             $request->validate(['address_id' => 'required|exists:user_addresses,id']);
         }
@@ -100,11 +98,16 @@ class OrderController extends Controller
                 ]);
 
                 foreach ($items as $item) {
+                    // HITUNG KOMISI DISINI
+                    $rate = ($item->product->product_type === 'digital') ? 0.15 : 0.10;
+                    $commission = ($item->product->price * $item->quantity) * $rate;
+
                     OrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $item->product_id,
                         'quantity' => $item->quantity,
                         'price_at_purchase' => $item->product->price,
+                        'commission_fee' => $commission, // SIMPAN KE DATABASE
                     ]);
                 }
             }
@@ -137,7 +140,11 @@ class OrderController extends Controller
                     ->where('id', $id)
                     ->firstOrFail();
 
-        return view('orders.show', compact('order')); 
+        if ($order->user_id !== Auth::id() && Auth::user()->role !== 'admin') {
+        abort(403);
+    }
+
+    return view('orders.show', compact('order')); 
     }
 
     // 5. Proses "Saya Sudah Bayar" (Upload Bukti)
@@ -145,7 +152,7 @@ class OrderController extends Controller
     {
         // 1. Validasi Input Gambar
         $request->validate([
-            'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048', 
+            'payment_proof' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048', 
         ]);
 
         // 2. Pastikan yang upload adalah pemilik order (Logika Loose Comparison !=)
@@ -222,97 +229,44 @@ class OrderController extends Controller
 
         return back()->with('error', 'Pesanan tidak dapat dibatalkan karena sudah diproses atau dikirim.');
     }
-    // Method untuk Pembeli konfirmasi "Pesanan Diterima"
-    public function markAsCompleted(Request $request, $id)
+    
+
+    public function confirmReceived($id)
     {
-        $order = Order::with(['shop', 'items.product'])->where('user_id', Auth::id())->where('id', $id)->firstOrFail();
+        $order = Order::with(['shop', 'items'])->findOrFail($id);
+        $user = Auth::user();
 
-        // Digital bisa langsung diselesaikan setelah paid, Fisik harus shipped dulu
-        $canComplete = ($order->status == 'shipped') || 
-                    ($order->items->every(fn($i) => $i->product->product_type == 'digital') && $order->payment_status == 'paid');
-
-        if ($canComplete) {
-            DB::transaction(function () use ($order) {
-                $order->update(['status' => 'completed']);
-                
-                $sellerUserId = $order->shop->user_id;
-                $wallet = Wallet::firstOrCreate(['user_id' => $sellerUserId], ['balance' => 0]);
-
-                $totalNetIncome = 0;
-
-                foreach ($order->items as $item) {
-                    $price = $item->price_at_purchase * $item->quantity;
-                    
-                    // Terapkan Rate Komisi
-                    $rate = ($item->product->product_type === 'digital') ? 0.15 : 0.10;
-                    
-                    $commission = $price * $rate;
-                    $net = $price - $commission;
-                    
-                    $totalNetIncome += $net;
-                }
-
-                // Tambahkan ongkir utuh ke penjual (biasanya ongkir tidak dipotong komisi)
-                $totalNetIncome += $order->shipping_cost;
-
-                $wallet->increment('balance', $totalNetIncome);
-
-                WalletTransaction::create([
-                    'wallet_id'      => $wallet->id,
-                    'type'           => 'credit', 
-                    'amount'         => $totalNetIncome,
-                    'description'    => 'Penjualan ' . $order->invoice_number . ' (Potongan Komisi Berhasil)',
-                    'reference_id'   => $order->id,
-                    'reference_type' => 'order'
-                ]);
-            });
-
-            return back()->with('success', 'Pesanan selesai! Dana (setelah potongan komisi) telah masuk ke saldo penjual.');
+        // Pastikan hanya pembeli yang bisa konfirmasi
+        if ($order->user_id !== $user->id) {
+            return back()->with('error', 'Akses ditolak.');
         }
 
-        return back()->with('error', 'Pesanan belum dapat diselesaikan.');
+        DB::transaction(function () use ($order) {
+            // 1. Update status pesanan jadi SELESAI
+            $order->update(['status' => 'completed']);
+
+            // 2. Hitung pendapatan bersih penjual (Total - Komisi)
+            // Gunakan fungsi calculateNetIncome yang sudah kita buat di Model Order
+            $netAmount = $order->calculateNetIncome();
+
+            // 3. Tambahkan saldo ke dompet penjual
+            $sellerWallet = Wallet::firstOrCreate(
+                ['user_id' => $order->shop->user_id],
+                ['balance' => 0]
+            );
+            $sellerWallet->increment('balance', $netAmount);
+
+            // 4. Catat riwayat transaksi dompet
+            WalletTransaction::create([
+                'wallet_id' => $sellerWallet->id,
+                'type' => 'credit',
+                'amount' => $netAmount,
+                'description' => 'Penjualan: ' . $order->invoice_number,
+                'reference_id' => $order->id,
+                'reference_type' => 'order'
+            ]);
+        });
+
+        return back()->with('success', 'Pesanan selesai! Saldo telah diteruskan ke penjual.');
     }
-
-    public function confirmReceived(Order $order)
-{
-    // 1. Keamanan: Pastikan yang klik adalah pemilik pesanan
-    if ($order->user_id !== Auth::id()) {
-        abort(403);
-    }
-
-    // 2. Pastikan statusnya memang sedang dikirim
-    if ($order->status !== 'shipped') {
-        return back()->with('error', 'Pesanan belum dalam pengiriman.');
-    }
-
-    DB::transaction(function () use ($order) {
-        // 3. Update status pesanan jadi Selesai
-        $order->update([
-            'status' => 'completed'
-        ]);
-
-        // 4. Hitung Pendapatan Bersih (Total - Fee Admin jika ada)
-        // Gunakan fungsi calculateNetIncome() yang pernah kita buat di Model Order
-        $netAmount = $order->calculateNetIncome();
-
-        // 5. Masukkan ke Dompet (Wallet) Penjual
-        $sellerWallet = Wallet::firstOrCreate(
-            ['user_id' => $order->shop->user_id],
-            ['balance' => 0]
-        );
-        $sellerWallet->increment('balance', $netAmount);
-
-        // 6. Catat riwayat transaksi saldo
-        WalletTransaction::create([
-            'wallet_id' => $sellerWallet->id,
-            'type' => 'credit',
-            'amount' => $netAmount,
-            'description' => 'Dana cair dari pesanan fisik #' . $order->invoice_number,
-            'reference_id' => $order->id,
-            'reference_type' => 'order'
-        ]);
-    });
-
-    return back()->with('success', 'Pesanan selesai! Terima kasih telah berbelanja di CrochetFlow.');
-}
 }

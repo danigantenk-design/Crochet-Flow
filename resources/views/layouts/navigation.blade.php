@@ -6,7 +6,7 @@
             <div class="flex flex-1 items-center">
                 <div class="shrink-0 flex items-center mr-4">
                     <a href="{{ route('front.index') }}" class="text-2xl font-bold flex items-center gap-2" style="color:#ff7db8">
-                        <img src="{{ asset('images/notxnobg.png') }}" alt="Logo" class="h-8 w-8 object-contain">
+                        <img src="{{ asset('images/notxnobg.webp') }}" alt="Logo" class="h-8 w-8 object-contain">
                         <span class="hidden md:block">CrochetFlow</span>
                     </a>
                 </div>
@@ -96,7 +96,7 @@
         @if(!Auth::check() || (Auth::user()->role !== 'admin' && !request()->is('shop*')))
         <div class="pt-4 pb-2 px-4">
             <form action="{{ route('front.index') }}" method="GET">
-                <input type="text" name="q" value="{{ request('q') }}" placeholder="Cari..." class="w-full bg-gray-50 border border-gray-300 rounded-lg py-2 px-4 text-sm">
+                <input type="text" name="q" id="q" value="{{ request('q') }}" placeholder="Cari..." class="w-full bg-gray-50 border border-gray-300 rounded-lg py-2 px-4 text-sm">
             </form>
         </div>
         @endif

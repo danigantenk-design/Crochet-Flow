@@ -26,6 +26,8 @@ return new class extends Migration
         // Jangan ambil harga dari tabel products saat menampilkan history, 
         // karena harga produk bisa berubah naik/turun di masa depan.
         $table->decimal('price_at_purchase', 12, 2);
+
+        $table->decimal('commission_fee', 15, 2)->default(0);
         
         $table->timestamps();
     });

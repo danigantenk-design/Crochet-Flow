@@ -92,30 +92,13 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Gantungan Kunci Ubur-ubur', 'cat' => $aksesorisCat->id, 'price' => 20000, 'img' => 'products/aksesoris/3.jpg', 'type' => 'physical', 'file' => null],
             ['name' => 'Boneka Amigurumi Sapi Lucu', 'cat' => $amigurumiCat->id, 'price' => 60000, 'img' => 'products/amigurumi/6.jpg', 'type' => 'physical', 'file' => null],
             
-            // Produk Digital (Pola PDF)
-            [
-                'name' => 'Pola Rajut Boneka Kelinci', 
-                'cat' => $amigurumiCat->id, 
-                'price' => 25000, 
-                'img' => 'products/amigurumi/kelinci.jpg', 
-                'type' => 'digital', 
-                'file' => 'patterns/pola-kelinci.pdf'
-            ],
             [
                 'name' => 'Pola Rajut Tas Rajut Estetik', 
                 'cat' => $aksesorisCat->id, 
                 'price' => 35000, 
                 'img' => 'products/aksesoris/1.jpg', 
                 'type' => 'digital', 
-                'file' => 'patterns/pola-tas.pdf'
-            ],
-            [
-                'name' => 'Pola Rajut Tatakan Gelas Bunga', 
-                'cat' => $dekorasiCat->id, 
-                'price' => 15000, 
-                'img' => 'products/dekorasi/7.jpg', 
-                'type' => 'digital', 
-                'file' => 'patterns/pola-tatakan.pdf'
+                'file' => 'patterns/pola.pdf'
             ],
             [
                 'name' => 'Pola Rajut Amigurumi Ayam', 
@@ -123,7 +106,7 @@ class DatabaseSeeder extends Seeder
                 'price' => 20000, 
                 'img' => 'products/amigurumi/8.jpg', 
                 'type' => 'digital', 
-                'file' => 'patterns/pola-ayam.pdf'
+                'file' => 'patterns/pola.pdf'
             ],
         ];
 
@@ -135,8 +118,8 @@ class DatabaseSeeder extends Seeder
                 'slug' => Str::slug($p['name']) . '-' . Str::random(5),
                 'description' => 'Produk rajutan tangan (handmade) berkualitas tinggi dengan benang lembut.',
                 'price' => $p['price'],
-                'stock' => ($p['type'] === 'digital') ? 999 : 15, // Produk digital stok melimpah
-                'weight' => ($p['type'] === 'digital') ? 0 : 250,   // Produk digital berat 0
+                'stock' => ($p['type'] === 'digital') ? 999 : 15, 
+                'weight' => ($p['type'] === 'digital') ? 0 : 250,   
                 'product_type' => $p['type'],
                 'file_path' => $p['file'],
                 'is_active' => true,

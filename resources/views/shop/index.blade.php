@@ -4,13 +4,13 @@
 <div class="container mx-auto px-4 py-8">
 
     {{-- 1. HEADER & STATISTIK --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
         
         {{-- Kartu Profil Toko --}}
         <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col items-center text-center">
             <div class="mb-4 relative">
                 @if($shop->image)
-                    <img src="{{ asset('storage/'.$shop->image) }}" class="w-20 h-20 rounded-full object-cover border-4 border-pink-50">
+                    <img src="{{ asset('storage/'.$shop->image) }}" fetchpriority="high" loading="lazy" class="w-20 h-20 rounded-full object-cover border-4 border-pink-50">
                 @else
                     <div class="w-20 h-20 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center text-3xl font-bold border-4 border-pink-50">
                         {{ substr($shop->name, 0, 1) }}
@@ -35,43 +35,26 @@
         </div>
 
         {{-- Kartu Statistik Pendapatan --}}
-        <div class="bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl p-6 text-white shadow-lg flex flex-col justify-between relative overflow-hidden">
-            <div class="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4">
-                <i class="fa-solid fa-wallet text-9xl"></i>
-            </div>
-            <div>
-                <p class="text-pink-100 font-medium mb-1">Total Pendapatan</p>
-                <h3 class="text-3xl font-bold">Rp {{ number_format($income, 0, ',', '.') }}</h3>
-            </div>
-            <a href="{{ route('shop.finance') }}" class="mt-4 bg-white/20 hover:bg-white/30 text-white text-sm py-2 px-4 rounded-lg w-max transition backdrop-blur-sm flex items-center gap-2">
-                Lihat Detail Keuangan <i class="fa-solid fa-arrow-right"></i>
-            </a>
-        </div>
-
-        {{-- Kartu Ringkasan Order --}}
-        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col justify-center gap-4">
-            <div class="flex items-center gap-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <div class="bg-blue-200 text-blue-700 w-10 h-10 rounded-full flex items-center justify-center font-bold">
-                    {{-- Hanya tampilkan jumlah order yang butuh dikemas --}}
-                    {{ \App\Models\Order::where('shop_id', $shop->id)->where('status', 'processing')->count() }}
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500 uppercase font-bold">Perlu Dikemas</p>
-                    <p class="text-gray-700 text-sm">Pesanan produk yang sudah lunas</p>
-                </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            
+            <div class="bg-gradient-to-br from-pink-500 to-rose-600 p-6 rounded-2xl text-white shadow-lg">
+                <p class="text-xs font-bold uppercase opacity-80">Saldo Bisa Ditarik</p>
+                <h3 class="text-3xl font-extrabold mt-2">Rp {{ number_format($wallet->balance, 0, ',', '.') }}</h3>
+                <a href="{{ route('shop.finance') }}" class="mt-4 inline-block text-xs bg-white text-pink-600 px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition">
+                    Lihat Keuangan →
+                </a>
             </div>
 
-            <div class="flex items-center gap-4 p-3 bg-purple-50 rounded-lg border border-purple-100">
-                <div class="bg-purple-200 text-purple-700 w-10 h-10 rounded-full flex items-center justify-center font-bold">
-                    {{ $products->count() }}
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500 uppercase font-bold">Total Produk</p>
-                    <p class="text-gray-700 text-sm">Item tersedia di etalase</p>
-                </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <p class="text-gray-400 text-xs font-bold uppercase">Perlu Dikemas</p>
+                <h3 class="text-2xl font-bold text-gray-800 mt-2">{{ $ordersCount }} Pesanan</h3>
+                <a href="{{ route('shop.orders') }}" class="text-blue-500 text-xs font-bold mt-2 inline-block">Proses Sekarang →</a>
             </div>
+
         </div>
+
     </div>
+    
 
     {{-- 2. DAFTAR PRODUK --}}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -118,7 +101,7 @@
                         @foreach($products as $product)
                         <tr class="hover:bg-gray-50 transition">
                             <td class="p-4">
-                                <img src="{{ $product->image_url }}" class="w-16 h-16 rounded-lg object-cover border bg-white">
+                                <img src="{{ $product->image_url }}" fetchpriority="high" loading="lazy" class="w-16 h-16 rounded-lg object-cover border bg-white">
                             </td>
                             <td class="p-4">
                                 <div class="font-bold text-gray-800">{{ $product->name }}</div>

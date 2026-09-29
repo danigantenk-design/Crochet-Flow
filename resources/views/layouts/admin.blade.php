@@ -20,32 +20,42 @@
                 </span>
             </div>
             
-            <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-                <p class="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Menu Utama</p>
-                
-                {{-- Menu Dashboard --}}
-                <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg font-bold shadow-md transition-all {{ request()->routeIs('admin.dashboard') ? 'bg-pink-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
+            <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+                {{-- MENU UTAMA --}}
+                <p class="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Main</p>
+                <a href="{{ route('admin.dashboard') }}"
+                class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all {{ request()->routeIs('admin.dashboard') ? 'bg-pink-600 text-white font-bold shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
                     <i class="fa-solid fa-chart-line w-5"></i> Dashboard
                 </a>
+
+                {{-- DATA RIWAYAT --}}
+                <p class="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-6 mb-2">Data Riwayat</p>
                 
-                <a href="{{ route('admin.users') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all {{ request()->routeIs('admin.users') ? 'bg-pink-600 text-white font-bold' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
-                    <i class="fa-solid fa-users w-5"></i> Users
-                </a>
-                
-                {{-- 4. TOKO & MITRA (SUDAH AKTIF) --}}
-                <a href="{{ route('admin.shops') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all {{ request()->routeIs('admin.shops') ? 'bg-pink-600 text-white font-bold' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
-                    <i class="fa-solid fa-store w-5"></i> Toko & Mitra
+                <a href="{{ route('admin.users') }}" 
+                class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all {{ request()->routeIs('admin.users') ? 'bg-pink-600 text-white font-bold shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
+                    <i class="fa-solid fa-users w-5"></i> Semua User
                 </a>
 
-                {{-- Menu Pencairan Dana --}}
-                <a href="{{ route('admin.withdrawals') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg font-bold shadow-md transition-all {{ request()->routeIs('admin.withdrawals') ? 'bg-pink-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
-                    <i class="fa-solid fa-money-bill-transfer w-5"></i> Pencairan (Withdraw)
+                <a href="{{ route('admin.shops') }}" 
+                class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all {{ request()->routeIs('admin.shops') ? 'bg-pink-600 text-white font-bold shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
+                    <i class="fa-solid fa-store w-5"></i> Daftar Toko
                 </a>
 
-                <div class="border-t border-gray-800 my-4"></div>
+                <a href="{{ route('admin.orders.history') }}" 
+                class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all {{ request()->routeIs('admin.orders.history') ? 'bg-pink-600 text-white font-bold shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
+                    <i class="fa-solid fa-box w-5"></i> Riwayat Pesanan
+                </a>
 
-                <a href="{{ route('front.index') }}" target="_blank" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">
-                    <i class="fa-solid fa-globe w-5"></i> Lihat Website
+                <a href="{{ route('admin.withdrawals.history') }}" 
+                class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all {{ request()->routeIs('admin.withdrawals.history') ? 'bg-pink-600 text-white font-bold shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
+                    <i class="fa-solid fa-clock-rotate-left w-5"></i> Riwayat Penarikan
+                </a>
+
+                {{-- LAPORAN --}}
+                <p class="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-6 mb-2">Laporan</p>
+                <a href="{{ route('admin.sales.report') }}" 
+                class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all {{ request()->routeIs('admin.sales.report') ? 'bg-pink-600 text-white font-bold shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white' }}">
+                    <i class="fa-solid fa-file-invoice-dollar w-5"></i> Laporan Penjualan
                 </a>
             </nav>
 

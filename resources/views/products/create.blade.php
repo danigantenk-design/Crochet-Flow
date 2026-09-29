@@ -2,125 +2,136 @@
 
 @section('content')
 <div class="max-w-4xl mx-auto px-4 py-8">
-    
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold text-gray-800">✨ Tambah Produk Baru</h2>
-        <a href="{{ route('shop.index') }}" class="text-gray-500 hover:text-pink-600 font-bold text-sm">
-            &larr; Batal
-        </a>
+        <a href="{{ route('shop.index') }}" class="text-gray-500 hover:text-pink-600 font-bold text-sm">&larr; Batal</a>
     </div>
 
-    {{-- Tampilkan Error Global jika ada --}}
-    @if ($errors->any())
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-            <strong class="font-bold">Ups! Ada kesalahan:</strong>
-            <ul class="list-disc list-inside mt-1 text-sm">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
     <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-8">
-        
-        <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+        {{-- Inisialisasi Alpine.js dengan x-data --}}
+        <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6" x-data="productUpload()">
             @csrf
+
+            {{-- 1. PILIHAN TIPE PRODUK (Trigger utama untuk memunculkan field Berat) --}}
+            <div class="bg-pink-50 p-4 rounded-lg border border-pink-100 mb-6">
+                <label class="block text-sm font-bold text-pink-700 mb-2">Tipe Produk <span class="text-red-500">*</span></label>
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-md border hover:border-pink-300 transition">
+                        <input type="radio" name="product_type" value="physical" x-model="productType" required> 
+                        <span class="text-sm font-medium text-gray-700">📦 Produk Fisik (Komisi 10%)</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-md border hover:border-pink-300 transition">
+                        <input type="radio" name="product_type" value="digital" x-model="productType"> 
+                        <span class="text-sm font-medium text-gray-700">💻 Produk Digital/Pola (Komisi 15%)</span>
+                    </label>
+                </div>
+            </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 
-                {{-- KIRI: Upload Gambar --}}
-                <div x-data="{ imagePreview: null }">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Foto Produk <span class="text-red-500">*</span></label>
-                    
-                    <div class="w-full aspect-square bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden relative hover:bg-gray-100 transition cursor-pointer group">
-                        
-                        <template x-if="imagePreview">
-                            <img :src="imagePreview" class="w-full h-full object-cover">
-                        </template>
-                        
-                        <template x-if="!imagePreview">
-                            <div class="text-center p-4">
-                                <span class="text-4xl mb-2 block">📷</span>
-                                <span class="text-sm text-gray-400 font-medium">Klik untuk upload gambar</span>
-                                <p class="text-xs text-gray-400 mt-1">(Max: 2MB)</p>
+                {{-- KIRI: MULTI UPLOAD GAMBAR --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Foto Produk (Maks 5) <span class="text-red-500">*</span></label>
+                    <div class="grid grid-cols-2 gap-3">
+                        {{-- Preview Gambar --}}
+                        <template x-for="(image, index) in previews" :key="index">
+                            <div class="relative aspect-square rounded-xl overflow-hidden border shadow-sm group">
+                                <img :src="image" class="w-full h-full object-cover">
+                                <button type="button" @click="removeImage(index)" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow hover:bg-red-600 transition">
+                                    <i class="fa-solid fa-xmark text-xs"></i>
+                                </button>
+                                <div x-if="index === 0" class="absolute bottom-0 inset-x-0 bg-black/50 text-[8px] text-white text-center py-1">UTAMA</div>
                             </div>
                         </template>
-
-                        <input type="file" name="image" class="absolute inset-0 opacity-0 cursor-pointer" accept="image/*"
-                               @change="imagePreview = URL.createObjectURL($event.target.files[0])">
+                        
+                        {{-- Tombol Input (Hanya muncul jika < 5) --}}
+                        <label x-show="previews.length < 5" class="aspect-square bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center relative hover:bg-gray-100 transition cursor-pointer group">
+                            <span class="text-3xl text-gray-400 group-hover:scale-110 transition">+</span>
+                            <span class="text-[10px] text-gray-400 mt-1">Upload</span>
+                            {{-- PENTING: name="images[]" dan attribute multiple --}}
+                            <input type="file" name="images[]" class="hidden" accept="image/*" @change="handleFiles($event)" multiple>
+                        </label>
                     </div>
-                    @error('image') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    @error('images') <p class="text-red-500 text-xs mt-2">{{ $message }}</p> @enderror
                 </div>
 
-                {{-- KANAN: Detail Produk --}}
-                <div class="space-y-5">
-                    
-                    {{-- 1. Nama Produk --}}
+                {{-- KANAN: DETAIL PRODUK --}}
+                <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Nama Produk <span class="text-red-500">*</span></label>
-                        <input type="text" name="name" value="{{ old('name') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring-pink-200" placeholder="Contoh: Sweater Rajut Pola Bunga" required>
-                        @error('name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Nama Produk</label>
+                        <input type="text" name="name" class="w-full border-gray-300 rounded-lg text-sm focus:ring-pink-500 focus:border-pink-500" placeholder="Contoh: Sweater Rajut Pola Bunga" required>
                     </div>
 
-                    {{-- 2. Kategori (Dropdown dari Database) --}}
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Kategori <span class="text-red-500">*</span></label>
-                        <select name="category_id" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring-pink-200">
-                            <option value="">-- Pilih Kategori --</option>
-                            @foreach($categories as $category)
-                                <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
-                                    {{ $category->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('category_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                        
-                        @if($categories->isEmpty())
-                            <p class="text-xs text-yellow-600 mt-1">⚠️ Belum ada kategori. Jalankan seeder dulu!</p>
-                        @endif
-                    </div>
-
-                    {{-- 3. Harga & Stok --}}
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">Harga (Rp) <span class="text-red-500">*</span></label>
-                            <input type="number" name="price" value="{{ old('price') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring-pink-200" placeholder="0" required>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Kategori</label>
+                            <select name="category_id" class="w-full border-gray-300 rounded-lg text-sm" required>
+                                @foreach($categories as $category)
+                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        
+                        {{-- INPUT BERAT (Hanya muncul jika FISIK) --}}
+                        <div x-show="productType === 'physical'" x-transition>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Berat (Gram)</label>
+                            <input type="number" name="weight" value="200" class="w-full border-gray-300 rounded-lg text-sm">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Harga (Rp)</label>
+                            <input type="number" name="price" class="w-full border-gray-300 rounded-lg text-sm" required>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">Stok <span class="text-red-500">*</span></label>
-                            <input type="number" name="stock" value="{{ old('stock') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring-pink-200" placeholder="0" required>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Stok</label>
+                            <input type="number" name="stock" class="w-full border-gray-300 rounded-lg text-sm" required>
                         </div>
                     </div>
-                    @error('price') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    @error('stock') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
 
-                    {{-- 4. Berat (Gram) --}}
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Berat (Gram) <span class="text-red-500">*</span></label>
-                        <input type="number" name="weight" value="{{ old('weight', 200) }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring-pink-200" placeholder="Contoh: 200" required>
-                        <p class="text-xs text-gray-400 mt-1">Digunakan untuk hitung ongkir.</p>
-                        @error('weight') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    {{-- FILE DIGITAL (Hanya muncul jika DIGITAL) --}}
+                    <div x-show="productType === 'digital'" x-transition class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <label class="block text-sm font-bold text-blue-700 mb-1">File Pola (PDF/ZIP)</label>
+                        <input type="file" name="digital_file" class="w-full text-xs text-gray-500 file:bg-blue-600 file:text-white file:rounded-md file:border-0 file:px-3 file:py-1">
                     </div>
-
                 </div>
             </div>
 
-            {{-- 5. Deskripsi (Full Width) --}}
-            <div class="mt-6">
-                <label class="block text-sm font-bold text-gray-700 mb-1">Deskripsi Lengkap <span class="text-red-500">*</span></label>
-                <textarea name="description" rows="5" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring-pink-200" placeholder="Jelaskan detail produkmu..." required>{{ old('description') }}</textarea>
-                @error('description') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Deskripsi Lengkap</label>
+                <textarea name="description" rows="4" class="w-full border-gray-300 rounded-lg text-sm" required></textarea>
             </div>
 
-            {{-- Tombol Submit --}}
-            <div class="pt-6 border-t border-gray-100 flex justify-end">
-                <button type="submit" class="bg-pink-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-pink-700 transition shadow-lg transform active:scale-95 flex items-center gap-2">
-                    <span>💾</span> Simpan Produk
-                </button>
+            <div class="pt-6 border-t flex justify-end">
+                <button type="submit" class="bg-pink-600 text-white font-bold py-2 px-10 rounded-lg hover:bg-pink-700 transition shadow-lg">💾 Simpan Produk</button>
             </div>
-
         </form>
     </div>
 </div>
+
+{{-- SCRIPT ALPINE JS --}}
+<script>
+    function productUpload() {
+        return {
+            productType: 'physical', // Default pilihan
+            previews: [],
+            handleFiles(event) {
+                const files = event.target.files;
+                for (let i = 0; i < files.length; i++) {
+                    if (this.previews.length < 5) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this.previews.push(e.target.result);
+                        };
+                        reader.readAsDataURL(files[i]);
+                    }
+                }
+            },
+            removeImage(index) {
+                this.previews.splice(index, 1);
+            }
+        }
+    }
+</script>
 @endsection

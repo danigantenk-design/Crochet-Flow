@@ -22,7 +22,7 @@ class ProductFactory extends Factory
             'description' => $this->faker->paragraph(),
             'price' => $this->faker->numberBetween(10000, 500000),
             'stock' => $this->faker->numberBetween(1, 100),
-            'weight' => $this->faker->numberBetween(100, 2000), // gram
+            'weight' => $this->faker->numberBetween(100, 2000), 
             'product_type' => 'physical',
             'is_active' => true,
         ];

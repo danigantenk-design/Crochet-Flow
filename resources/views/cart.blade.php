@@ -54,7 +54,7 @@
 
                                             {{-- GAMBAR (FIXED) --}}
                                             <div class="w-24 h-24 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
-                                                <img src="{{ $item->product->image_url }}" alt="{{ $item->product->name }}" class="w-full h-full object-cover">
+                                                <img src="{{ $item->product->image_url }}" fetchpriority="high" loading="lazy" alt="{{ $item->product->name }}" class="w-full h-full object-cover">
                                             </div>
 
                                             {{-- DETAIL ITEM --}}

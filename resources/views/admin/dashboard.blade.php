@@ -16,43 +16,58 @@
 
     {{-- Kartu Statistik --}}
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div class="bg-blue-100 p-3 rounded-full text-blue-600">
+        
+        {{-- 1. Total Pengguna -> Link ke Semua User --}}
+        <a href="{{ route('admin.users') }}" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md hover:border-blue-300 transition-all group">
+            <div class="bg-blue-100 p-3 rounded-full text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                 <i class="fa-solid fa-users text-xl"></i>
             </div>
             <div>
                 <p class="text-gray-500 text-xs font-bold uppercase">Total Pengguna</p>
                 <h3 class="text-2xl font-bold text-gray-800">{{ $totalUsers }}</h3>
             </div>
-        </div>
+        </a>
 
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div class="bg-purple-100 p-3 rounded-full text-purple-600">
+        {{-- 2. Total Toko -> Link ke Daftar Toko --}}
+        <a href="{{ route('admin.shops') }}" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md hover:border-purple-300 transition-all group">
+            <div class="bg-purple-100 p-3 rounded-full text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
                 <i class="fa-solid fa-store text-xl"></i>
             </div>
             <div>
                 <p class="text-gray-500 text-xs font-bold uppercase">Total Toko</p>
                 <h3 class="text-2xl font-bold text-gray-800">{{ $totalShops }}</h3>
             </div>
-        </div>
+        </a>
 
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div class="bg-yellow-100 p-3 rounded-full text-yellow-600">
+        {{-- 3. Total Pesanan -> Link ke Riwayat Pesanan --}}
+        <a href="{{ route('admin.orders.history') }}" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md hover:border-yellow-300 transition-all group">
+            <div class="bg-yellow-100 p-3 rounded-full text-yellow-600 group-hover:bg-yellow-600 group-hover:text-white transition-colors">
                 <i class="fa-solid fa-shopping-bag text-xl"></i>
             </div>
             <div>
                 <p class="text-gray-500 text-xs font-bold uppercase">Total Pesanan</p>
                 <h3 class="text-2xl font-bold text-gray-800">{{ $totalOrders }}</h3>
             </div>
-        </div>
+        </a>
 
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div class="bg-green-100 p-3 rounded-full text-green-600">
-                <i class="fa-solid fa-money-bill-wave text-xl"></i>
+        {{-- 4. Omzet Platform -> Link ke Laporan Penjualan --}}
+        <a href="{{ route('admin.sales.report') }}" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md hover:border-green-300 transition-all group">
+                <div class="bg-green-100 p-2 rounded-full text-green-600">
+                    <i class="fa-solid fa-money-bill-wave text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] text-gray-500 font-bold uppercase">Omzet</p>
+                    <h3 class="text-xl font-bold text-gray-800">Rp {{ number_format($totalRevenue, 0, ',', '.') }}</h3>
+                </div>
+            
+        </a>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md hover:border-green-300 transition-all group">
+            <div class="bg-green-100 p-2 rounded-full text-green-600">
+                <i class="fa-solid fa-hand-holding-dollar text-lg"></i>
             </div>
             <div>
-                <p class="text-gray-500 text-xs font-bold uppercase">Omzet Platform</p>
-                <h3 class="text-xl font-bold text-green-600">Rp {{ number_format($totalRevenue, 0, ',', '.') }}</h3>
+                <p class="text-[10px] text-gray-500 font-bold uppercase">Profit Admin</p>
+                <h3 class="text-xl font-bold text-pink-600">Rp {{ number_format($totalProfit, 0, ',', '.') }}</h3>
             </div>
         </div>
     </div>

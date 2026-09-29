@@ -44,6 +44,19 @@
                 Rp {{ number_format($transactions->where('type', 'credit')->sum('amount'), 0, ',', '.') }}
             </p>
         </div>
+         {{-- SALDO TERTAHAN --}}
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-orange-100">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Saldo Tertahan</p>
+                        <h3 class="text-xl font-bold text-orange-500 mt-1">Rp {{ number_format($pendingIncome ?? 0, 0, ',', '.') }}</h3>
+                    </div>
+                    <div class="bg-orange-50 p-2 rounded-lg text-orange-500">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                </div>
+                <p class="text-[9px] text-gray-400 mt-3 italic">*Akan cair setelah pembeli konfirmasi terima barang</p>
+            </div>
     </div>
 
     {{-- TABEL RIWAYAT TRANSAKSI --}}

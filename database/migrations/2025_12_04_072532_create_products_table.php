@@ -24,9 +24,6 @@ return new class extends Migration
             // Decimal aman untuk Rupiah
             $table->decimal('price', 12, 2); 
             $table->integer('stock');
-            
-            // TAMBAHAN PENTING: Kolom Image Utama (Sesuai Controller)
-            $table->string('image')->nullable();
 
             // Berat (gram). Saya kasih default 100gr supaya tidak error kalau form kosong
             $table->integer('weight')->default(100);

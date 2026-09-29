@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $product->name }} - CrochetFlow</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="bg-gray-50">
@@ -32,11 +33,10 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8">
                 
                 {{-- BAGIAN GAMBAR (DIPERBAIKI) --}}
-                <div class="p-6 bg-gray-50" 
-                     {{-- Gunakan image_url dari Model agar otomatis pilih gambar yang benar --}}
+<div class="p-6 bg-gray-50" 
                      x-data="{ activeImage: '{{ $product->image_url }}' }">
                     
-                    {{-- Gambar Besar --}}
+                    {{-- 1. Gambar Besar Utama --}}
                     <div class="aspect-square w-full bg-white rounded-lg overflow-hidden border border-gray-200 mb-4 relative group">
                         <img :src="activeImage" 
                              alt="{{ $product->name }}" 
@@ -55,32 +55,27 @@
                         </div>
                     </div>
 
-                    {{-- Gallery Thumbnails --}}
-                    <div class="flex gap-2 overflow-x-auto pb-2">
-                        
-                        {{-- 1. Thumbnail Gambar Utama (Wajib Ada) --}}
-                        <button @click="activeImage = '{{ $product->image_url }}'" 
-                                class="w-20 h-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition focus:outline-none bg-white"
-                                :class="activeImage === '{{ $product->image_url }}' ? 'border-pink-600 ring-1 ring-pink-600' : 'border-gray-200 hover:border-gray-400'">
-                            <img src="{{ $product->image_url }}" class="w-full h-full object-cover">
-                        </button>
-
-                        {{-- 2. Thumbnail Gambar Tambahan (Jika Ada) --}}
-                        @if($product->images && $product->images->count() > 0)
+                    {{-- 2. Gallery Thumbnails (HANYA MUNCUL JIKA GAMBAR LEBIH DARI 1) --}}
+                    @if($product->images && $product->images->count() > 1)
+                        <div class="flex gap-2 overflow-x-auto pb-2">
                             @foreach($product->images as $image)
-                                {{-- Logic URL aman --}}
                                 @php 
-                                    $imgUrl = \Illuminate\Support\Str::startsWith($image->image_url, 'http') ? $image->image_url : asset($image->image_url);
+                                    // Sinkronkan pemanggilan path dengan struktur public/images/
+                                    $imgUrl = \Illuminate\Support\Str::startsWith($image->image_url, 'http') 
+                                        ? $image->image_url 
+                                        : asset('images/' . $image->image_url);
                                 @endphp
 
-                                <button @click="activeImage = '{{ $imgUrl }}'" 
+                                <button type="button"
+                                        @click="activeImage = '{{ $imgUrl }}'" 
                                         class="w-20 h-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition focus:outline-none bg-white"
                                         :class="activeImage === '{{ $imgUrl }}' ? 'border-pink-600 ring-1 ring-pink-600' : 'border-gray-200 hover:border-gray-400'">
-                                    <img src="{{ $imgUrl }}" class="w-full h-full object-cover">
+                                    <img src="{{ $imgUrl }}" alt="Thumbnail {{ $product->name }}" class="w-full h-full object-cover">
                                 </button>
                             @endforeach
-                        @endif
-                    </div>
+                        </div>
+                    @endif
+
                 </div>
                 {{-- AKHIR BAGIAN GAMBAR --}}
 
@@ -99,6 +94,22 @@
                     <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
                         {{ $product->name }}
                     </h1>
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="flex text-yellow-400">
+                            @php $rating = $product->averageRating(); @endphp
+                            @for($i = 1; $i <= 5; $i++)
+                                @if($i <= $rating)
+                                    <i class="fas fa-star"></i>
+                                @elseif($i - 0.5 <= $rating)
+                                    <i class="fas fa-star-half-alt"></i>
+                                @else
+                                    <i class="far fa-star"></i>
+                                @endif
+                            @endfor
+                        </div>
+                        <span class="text-sm font-bold text-gray-700">{{ number_format($rating, 1) }} / 5.0</span>
+                        <span class="text-sm text-gray-400">({{ $product->totalReviews() }} Ulasan)</span>
+                    </div>
 
                     <div class="text-3xl font-bold text-gray-900 mb-6">
                         Rp {{ number_format($product->price, 0, ',', '.') }}
@@ -183,7 +194,6 @@
                         <div class="flex items-center justify-between mb-2">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 uppercase">
-                                    {{-- Menggunakan 'name' untuk keamanan jika 'full_name' tidak ada --}}
                                     {{ substr($review->user->name ?? 'User', 0, 2) }}
                                 </div>
                                 <div>

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Withdrawal;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Models\Courier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -15,180 +16,135 @@ use Illuminate\Support\Facades\Auth;
 class AdminController extends Controller
 {
     public $msg;
+
     public function index()
     {
-        // Statistik
         $totalUsers = User::count();
         $totalShops = Shop::count();
         $totalOrders = Order::count();
+        
+        // Omzet (Total perputaran uang)
         $totalRevenue = Order::where('status', 'completed')->sum('total_price');
+        
+        // Profit Admin (Total komisi dari order_items)
+        $totalProfit = DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.status', 'completed')
+            ->sum('order_items.commission_fee');
 
-        // 1. Toko yang Belum Diverifikasi
         $pendingShops = Shop::with('user')->where('is_verified', false)->get();
 
-        // 2. Pembayaran yang Menunggu Verifikasi
         $pendingPayments = Order::with(['user', 'shop'])
                             ->where('status', 'waiting_verification') 
                             ->whereNotNull('payment_proof')
                             ->get();
 
         return view('admin.dashboard', compact(
-            'totalUsers', 'totalShops', 'totalOrders', 'totalRevenue', 'pendingShops', 'pendingPayments'
+            'totalUsers', 'totalShops', 'totalOrders', 'totalRevenue', 'totalProfit', 'pendingShops', 'pendingPayments'
         ));
     }
 
-    // Hapus User
-    public function deleteUser($id)
+    // MANAJEMEN EKSPEDISI
+    public function couriers()
     {
-        $user = User::findOrFail($id);
-        
-        // Mencegah admin menghapus dirinya sendiri
-        if ($user->id == Auth::id()) {
-            return back()->with('error', 'Anda tidak bisa menghapus akun sendiri!');
-        }
-
-        $user->delete();
-        return back()->with('success', 'User berhasil dihapus.');
+        $couriers = Courier::latest()->get();
+        return view('admin.couriers.index', compact('couriers'));
     }
 
-    // Reject Toko
-    public function rejectShop($id)
+    public function storeCourier(Request $request)
     {
-        $shop = Shop::findOrFail($id);
-        $shop->user->role = 'buyer'; // Balikin role user
-        $shop->user->save();
-        $shop->delete();
-        return back()->with('success', "Pengajuan toko ditolak.");
+        $request->validate([
+            'code' => 'required|unique:couriers|max:10',
+            'name' => 'required|max:255'
+        ]);
+
+        Courier::create([
+            'code' => strtoupper($request->code),
+            'name' => $request->name,
+            'is_active' => true
+        ]);
+
+        return back()->with('success', 'Ekspedisi berhasil ditambahkan.');
     }
 
-    // VERIFIKASI PEMBAYARAN
-    public function confirmPayment($id)
-{
-    $order = Order::with(['items.product', 'shop'])->findOrFail($id);
-
-    DB::transaction(function () use ($order) {
-        if ($order->isFullDigital()) {
-            $order->update([
-                'status' => 'completed',
-                'payment_status' => 'paid'
-            ]);
-
-            $sellerWallet = Wallet::firstOrCreate(['user_id' => $order->shop->user_id], ['balance' => 0]);
-            $netAmount = $order->calculateNetIncome();
-            $sellerWallet->increment('balance', $netAmount);
-
-            WalletTransaction::create([
-                'wallet_id' => $sellerWallet->id,
-                'type' => 'credit',
-                'amount' => $netAmount,
-                'description' => 'Penjualan Digital Order #' . $order->invoice_number,
-                'reference_id' => $order->id,
-                'reference_type' => 'order'
-            ]);
-            
-            $this->msg = "Pembayaran Digital Terverifikasi. Saldo masuk ke penjual.";
-        } else {
-            $order->update([
-                'status' => 'processing',
-                'payment_status' => 'paid'
-            ]);
-            $this->msg = "Pembayaran Fisik Terverifikasi. Pesanan diteruskan ke penjual.";
-        }
-    });
-
-    return back()->with('success', $this->msg);
-}
-
-    // Halaman Daftar Penarikan Dana
-    public function withdrawals()
+    public function toggleCourier($id)
     {
-        // Ambil data withdrawal yang statusnya pending
-        $withdrawals = Withdrawal::where('status', 'pending')
-                                 ->with('user.shop') // Load relasi user & toko
-                                 ->latest()
-                                 ->get();
-
-        return view('admin.withdrawals', compact('withdrawals'));
+        $courier = Courier::findOrFail($id);
+        $courier->update(['is_active' => !$courier->is_active]);
+        return back()->with('success', 'Status ekspedisi berhasil diubah.');
     }
 
-    // Setujui Penarikan
-    public function approveWithdrawal($id)
+    public function deleteCourier($id)
     {
-        $withdrawal = Withdrawal::findOrFail($id);
-        
-        // Ubah status jadi approved
-        $withdrawal->update(['status' => 'approved']);
-
-        return back()->with('success', 'Penarikan disetujui! Dana dianggap telah ditransfer.');
+        Courier::findOrFail($id)->delete();
+        return back()->with('success', 'Ekspedisi berhasil dihapus.');
     }
 
-    // Tolak Penarikan (Refund Saldo)
-    public function rejectWithdrawal($id)
-    {
-        $withdrawal = Withdrawal::findOrFail($id);
-
-        DB::transaction(function () use ($withdrawal) {
-            // A. Ubah status jadi rejected
-            $withdrawal->update(['status' => 'rejected']);
-
-            // B. KEMBALIKAN SALDO ke Dompet User
-            $wallet = Wallet::where('user_id', $withdrawal->user_id)->first();
-            if ($wallet) {
-                $wallet->increment('balance', $withdrawal->amount);
-
-                // C. Catat Mutasi Pengembalian (Refund)
-                WalletTransaction::create([
-                    'wallet_id' => $wallet->id,
-                    'type' => 'credit', // Uang Masuk Kembali
-                    'amount' => $withdrawal->amount,
-                    'description' => 'Pengembalian Dana (Penarikan Ditolak)',
-                    'reference_id' => $withdrawal->id,
-                    'reference_type' => 'withdrawal_refund'
-                ]);
-            }
-        });
-
-        return back()->with('success', 'Penarikan ditolak dan saldo telah dikembalikan ke pengguna.');
-    }
-
-    // ==========================================
-    // MANAJEMEN USERS
-    // ==========================================
-    public function users()
-    {
+    // DASHBOARD DATA LAINNYA
+    public function users() {
         $users = User::latest()->paginate(10);
         return view('admin.users', compact('users'));
     }
 
-    // ==========================================
-    // MANAJEMEN TOKO (SHOPS)
-    // ==========================================
-    
-    public function shops()
-    {
-        // Ambil semua toko beserta data pemiliknya
+    public function shops() {
         $shops = Shop::with('user')->latest()->paginate(10);
         return view('admin.shops', compact('shops'));
     }
 
-    public function deleteShop($id)
-    {
-        $shop = Shop::findOrFail($id);
-        $shop->delete(); 
-        return back()->with('success', 'Toko berhasil dihapus permanen.');
+    public function orderHistory() {
+        $orders = Order::with(['user', 'shop'])->whereIn('status', ['processing', 'shipped', 'completed', 'cancelled'])->latest()->paginate(15);
+        return view('admin.orders.history', compact('orders'));
     }
 
-    // Method untuk menyetujui/mengaktifkan toko
-    public function approveShop($id)
-    {
-        $shop = Shop::findOrFail($id);
-        
-        $shop->update([
-            'is_verified' => true,
-            'is_active' => true 
-        ]);
-        $shop->save();
+    public function orderDetail($id) {
+        $order = Order::with(['user', 'shop', 'items.product'])->findOrFail($id);
+        return view('admin.orders.show', compact('order'));
+    }
 
-        return back()->with('success', 'Toko berhasil disetujui!');
+    public function withdrawals() {
+        $withdrawals = Withdrawal::where('status', 'pending')->with('user.shop')->latest()->get();
+        return view('admin.withdrawals', compact('withdrawals'));
+    }
+
+    public function withdrawalHistory() {
+        $withdrawals = Withdrawal::with('user.shop')->whereIn('status', ['approved', 'rejected'])->latest()->paginate(15);
+        return view('admin.withdrawals.history', compact('withdrawals'));
+    }
+
+    public function salesReport() {
+        $reports = Order::where('status', 'completed')
+            ->select(
+                DB::raw('SUM(total_price) as revenue'),
+                DB::raw('COUNT(*) as total_sales'),
+                DB::raw("DATE_FORMAT(created_at, '%M %Y') as month"),
+                DB::raw("YEAR(created_at) as year"),
+                DB::raw("MONTH(created_at) as month_num")
+            )
+            ->groupBy('year', 'month_num', 'month')
+            ->orderBy('year', 'desc')
+            ->orderBy('month_num', 'desc')
+            ->get();
+
+        return view('admin.reports.index', compact('reports'));
+    }
+
+    // LOGIKA VERIFIKASI (Keep existing)
+    public function approveShop($id) {
+        $shop = Shop::findOrFail($id);
+        $shop->update(['is_verified' => true, 'is_active' => true]);
+        return back()->with('success', 'Toko disetujui!');
+    }
+
+    // app/Http/Controllers/AdminController.php
+
+    public function confirmPayment($id) {
+        $order = Order::findOrFail($id);
+
+        $order->update([
+            'status' => 'processing', 
+            'payment_status' => 'paid'
+        ]);
+
+        return back()->with('success', 'Pembayaran diverifikasi. Penjual akan segera memproses pesanan.');
     }
 }

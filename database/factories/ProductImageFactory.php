@@ -56,7 +56,7 @@ class ProductImageFactory extends Factory
             $fullPath = public_path('images/products/' . $folderPath);
             
             // Gunakan glob untuk mencari file di folder spesifik
-            $files = glob($fullPath . '/*.{jpg,jpeg,png,gif}', GLOB_BRACE);
+            $files = glob($fullPath . '/*.{jpg,jpeg,png,gif,webp}', GLOB_BRACE);
 
             if (empty($files)) {
                 $randomImagePath = 'images/default.jpg';

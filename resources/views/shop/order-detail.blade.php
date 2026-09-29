@@ -26,13 +26,13 @@
                 <div class="space-y-4">
                     @foreach($order->items as $item)
                     <div class="flex gap-4">
-                        <img src="{{ $item->product->image_url }}" class="w-16 h-16 rounded bg-gray-100 object-cover border">
+                        <img src="{{ $item->product->image_url }}" fetchpriority="high" loading="lazy" class="w-16 h-16 rounded bg-gray-100 object-cover border">
                         <div class="flex-1">
                             <h4 class="font-bold text-gray-800 text-sm">{{ $item->product->name }}</h4>
-                            <p class="text-xs text-gray-500">{{ $item->quantity }} x Rp {{ number_format($item->price) }}</p>
+                            <p class="text-xs text-gray-500">{{ $item->quantity }} x Rp {{ number_format($item->price_at_purchase, 0, ',', '.') }}</p>
                         </div>
                         <div class="text-right font-bold text-gray-700 text-sm">
-                            Rp {{ number_format($item->subtotal) }}
+                            Rp {{ number_format($item->price_at_purchase * $item->quantity, 0, ',', '.') }}
                         </div>
                     </div>
                     @endforeach

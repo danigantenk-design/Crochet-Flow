@@ -52,7 +52,7 @@
                                 <div class="flex items-center gap-3">
                                     <div class="w-12 h-12 rounded bg-gray-100 overflow-hidden border border-gray-200 flex-shrink-0">
                                         {{-- Pakai Accessor image_url --}}
-                                        <img src="{{ $product->image_url }}" class="w-full h-full object-cover">
+                                        <img src="{{ $product->image_url }}" fetchpriority="high" loading="lazy" class="w-full h-full object-cover">
                                     </div>
                                     <div>
                                         <div class="font-bold text-gray-800">{{ $product->name }}</div>

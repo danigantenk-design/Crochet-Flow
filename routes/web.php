@@ -73,6 +73,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/download-product/{orderItem}', [OrderController::class, 'downloadDigitalProduct'])->name('orders.download');
     Route::patch('/order/{id}/complete', [OrderController::class, 'markAsCompleted'])->name('orders.complete');
     Route::patch('/orders/{order}/confirm-received', [OrderController::class, 'confirmReceived'])->name('orders.confirm-received');
+    // baru ni
+    Route::patch('/orders/{id}/confirm-received', [OrderController::class, 'confirmReceived'])->name('orders.confirm_received');
 
     // Download Produk Digital
     Route::get('/orders/download/{orderItemId}', [App\Http\Controllers\OrderController::class, 'downloadDigitalProduct'])->name('orders.download')->middleware('auth');
@@ -114,8 +116,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 | ADMIN ROUTES
 |--------------------------------------------------------------------------
 */
+
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
+    Route::get('/history', [AdminController::class, 'history'])->name('history');
     Route::patch('/shop/{id}/approve', [AdminController::class, 'approveShop'])->name('shop.approve');
     Route::delete('/shop/{id}/reject', [AdminController::class, 'rejectShop'])->name('shop.reject');
     Route::patch('/payment/{id}/confirm', [AdminController::class, 'confirmPayment'])->name('payment.confirm');
@@ -135,4 +139,17 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     Route::patch('/admin/payment/{id}/confirm', [AdminController::class, 'confirmPayment'])
       ->name('admin.payment.confirm');
+
+    // RIWAYAT PENJUALAN & LAPORAN
+    Route::get('/orders/history', [AdminController::class, 'orderHistory'])->name('orders.history');
+    Route::get('/withdrawals/history', [AdminController::class, 'withdrawalHistory'])->name('withdrawals.history');
+    Route::get('/sales-report', [AdminController::class, 'salesReport'])->name('sales.report');
+
+    Route::get('/orders/{id}/detail', [AdminController::class, 'orderDetail'])->name('orders.detail');
+
+    // EKSPEDISI
+    Route::get('/couriers', [AdminController::class, 'couriers'])->name('couriers.index');
+    Route::post('/couriers', [AdminController::class, 'storeCourier'])->name('couriers.store');
+    Route::patch('/couriers/{id}/toggle', [AdminController::class, 'toggleCourier'])->name('couriers.toggle');
+    Route::delete('/couriers/{id}', [AdminController::class, 'deleteCourier'])->name('couriers.delete');
 });

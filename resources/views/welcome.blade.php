@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CrochetFlow - Rajutan & Pola</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Hide scrollbar for category list */
         .no-scrollbar::-webkit-scrollbar {
@@ -69,13 +70,13 @@
             <div class="bg-white rounded-xl shadow-sm hover:shadow-xl transition duration-300 overflow-hidden group border border-gray-100 flex flex-col h-full">
                 <div class="h-64 bg-gray-100 w-full overflow-hidden relative">
                     <img src="{{ $product->image_url }}" 
+                    fetchpriority="high" loading="lazy"
                     alt="{{ $product->name }}" 
                     class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
-                    
                     <div class="absolute top-3 right-3">
                          @if($product->product_type == 'digital')
                             <span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded shadow-md">
-                                PDF
+                                POLA RAJUT
                             </span>
                         @endif
                     </div>
@@ -92,6 +93,28 @@
                         {{ $product->name }}
                     </h3>
                     <p class="text-sm text-gray-500 mb-4">{{ $product->shop->name }}</p>
+
+                    <div class="flex items-center mt-2 mb-1">
+                        <div class="flex text-yellow-400 text-xs mr-1">
+                            @php 
+                                $avgRating = $product->averageRating(); 
+                            @endphp
+                            
+                            @for($i = 1; $i <= 5; $i++)
+                                @if($i <= floor($avgRating))
+                                    {{-- Bintang Penuh --}}
+                                    <i class="fas fa-star"></i>
+                                @elseif($avgRating > ($i - 1) && $avgRating < $i)
+                                    {{-- Bintang Setengah --}}
+                                    <i class="fas fa-star-half-alt"></i>
+                                @else
+                                    {{-- Bintang Kosong --}}
+                                    <i class="far fa-star text-gray-300"></i>
+                                @endif
+                            @endfor
+                        </div>
+                        <span class="text-gray-400 text-[10px]">({{ $product->totalReviews() }})</span>
+                    </div>
 
                     <div class="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
                         <span class="text-xl font-extrabold text-gray-900">

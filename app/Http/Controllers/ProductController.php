@@ -4,17 +4,34 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Category;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use App\Models\ProductImage;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
-    // 1. TAMPILKAN FORM TAMBAH PRODUK
+    // MENAMPILKAN SEMUA PRODUK (Biasanya untuk Pembeli)
+    public function index()
+    {
+        // Tambahkan with('reviews') agar rating bisa dipanggil dengan cepat
+        $products = Product::with('reviews')->where('is_active', 1)->latest()->get();
+        return view('products.index', compact('products'));
+    }
+
+    // TAMPILKAN DETAIL PRODUK
+    public function show($slug)
+    {
+        // Ambil produk beserta ulasannya
+        $product = Product::with(['reviews.user', 'shop'])->where('slug', $slug)->firstOrFail();
+        return view('products.show', compact('product'));
+    }
+
+    // 1. TAMPILKAN FORM TAMBAH PRODUK (SELLER)
     public function create()
     {
-        // Pastikan user punya toko
         if (!Auth::user()->shop) {
             return redirect()->route('shop.create');
         }
@@ -28,40 +45,64 @@ class ProductController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'price' => 'required|numeric|min:100',
-            'stock' => 'required|integer|min:0',
             'category_id' => 'required|exists:categories,id',
-            'description' => 'nullable|string',
-            'image' => 'required|image|mimes:jpeg,png,jpg|max:2048', // Wajib ada gambar
+            'price' => 'required|numeric|min:0',
+            'stock' => 'required|integer|min:0',
+            'weight' => 'required_if:product_type,physical|nullable|numeric',
+            'product_type' => 'required|in:physical,digital',
+            'description' => 'required|string',
+            'images' => 'required|array|min:1',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        // Upload Gambar
-        $imagePath = null;
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('products', 'public');
+        DB::beginTransaction();
+        try {
+            // 1. Simpan Data Produk Utama
+            $product = Product::create([
+                'shop_id' => Auth::user()->shop->id,
+                'category_id' => $request->category_id,
+                'name' => $request->name,
+                'slug' => Str::slug($request->name) . '-' . time(),
+                'price' => $request->price,
+                'stock' => $request->stock,
+                'weight' => $request->product_type === 'digital' ? 0 : $request->weight,
+                'product_type' => $request->product_type,
+                'description' => $request->description,
+                'is_active' => true,
+            ]);
+
+            // 2. Simpan Banyak Gambar ke public/images/product/{kategori}
+            if ($request->hasFile('images')) {
+                $category = Category::find($request->category_id);
+                $folderName = Str::slug($category->name ?? 'umum');
+
+                foreach ($request->file('images') as $key => $image) {
+                    $fileName = time() . '_' . Str::random(5) . '.' . $image->getClientOriginalExtension();
+                    
+                    // Pindahkan file fisik ke folder public/images/product/{nama-kategori}
+                    $image->move(public_path("images/product/{$folderName}"), $fileName);
+                    
+                    // Simpan path ke tabel product_images kolom image_url
+                    $product->images()->create([
+                        'image_url' => "product/{$folderName}/{$fileName}",
+                        'is_primary' => ($key === 0) ? true : false,
+                    ]);
+                }
+            }
+
+            DB::commit();
+            return redirect()->route('shop.index')->with('success', 'Produk berhasil ditambahkan!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal: ' . $e->getMessage());
         }
-
-        // Simpan ke Database
-        Product::create([
-            'shop_id' => Auth::user()->shop->id, // Otomatis link ke toko user
-            'category_id' => $request->category_id,
-            'name' => $request->name,
-            'slug' => Str::slug($request->name) . '-' . Str::random(5), // Slug unik
-            'description' => $request->description,
-            'price' => $request->price,
-            'stock' => $request->stock,
-            'image' => $imagePath,
-            'is_active' => 1, // Default langsung aktif
-        ]);
-
-        return redirect()->route('shop.index')->with('success', 'Produk berhasil ditambahkan!');
     }
 
     // 3. TAMPILKAN FORM EDIT
     public function edit($id)
     {
         $shopId = Auth::user()->shop->id;
-        // Pastikan produk milik toko user yang sedang login (Keamanan)
         $product = Product::where('shop_id', $shopId)->findOrFail($id);
         
         $categories = Category::all();
@@ -80,10 +121,9 @@ class ProductController extends Controller
             'stock' => 'required|integer|min:0',
             'category_id' => 'required|exists:categories,id',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Opsional saat edit
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        // Data yang akan diupdate
         $data = [
             'name' => $request->name,
             'slug' => Str::slug($request->name) . '-' . Str::random(5),
@@ -94,18 +134,14 @@ class ProductController extends Controller
             'is_active' => $request->has('is_active') ? 1 : 0,
         ];
 
-        // Cek jika ada upload gambar baru
         if ($request->hasFile('image')) {
-            // Hapus gambar lama jika ada
             if ($product->image) {
                 Storage::disk('public')->delete($product->image);
             }
-            // Simpan gambar baru
             $data['image'] = $request->file('image')->store('products', 'public');
         }
 
         $product->update($data);
-
         return redirect()->route('shop.index')->with('success', 'Produk berhasil diperbarui!');
     }
 
@@ -115,13 +151,11 @@ class ProductController extends Controller
         $shopId = Auth::user()->shop->id;
         $product = Product::where('shop_id', $shopId)->findOrFail($id);
 
-        // Hapus file gambar
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }
 
         $product->delete();
-
         return back()->with('success', 'Produk berhasil dihapus.');
     }
 }

@@ -6,6 +6,7 @@
     <title>Invoice #{{ $order->invoice_number }} - CrochetFlow</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body class="bg-gray-50 text-gray-800">
 
@@ -24,13 +25,13 @@
 
         @if(session('error'))
             <div class="bg-red-100 border border-red-200 text-red-700 p-4 rounded-lg mb-6 flex items-center gap-2">
-                {{ session('error') }}
+                <i class="fas fa-exclamation-circle"></i> {{ session('error') }}
             </div>
         @endif
 
         @if(session('success'))
             <div class="bg-green-100 border border-green-200 text-green-700 p-4 rounded-lg mb-6 flex items-center gap-2">
-                {{ session('success') }}
+                <i class="fas fa-check-circle"></i> {{ session('success') }}
             </div>
         @endif
 
@@ -47,7 +48,6 @@
                     <div>
                         @if($order->status == 'pending')
                             @if($order->payment_proof)
-                                {{-- Tambahkan kondisi ini agar tidak lari ke @else --}}
                                 <span class="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full font-bold text-sm border border-yellow-200">
                                     ⏳ Menunggu Verifikasi
                                 </span>
@@ -56,7 +56,6 @@
                                     💳 Belum Dibayar
                                 </span>
                             @endif
-                        {{-- Tambahkan kondisi eksplisit untuk status lainnya --}}
                         @elseif($order->status == 'waiting_verification')
                             <span class="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full font-bold text-sm border border-yellow-200">
                                 ⏳ Menunggu Verifikasi
@@ -77,56 +76,98 @@
                             <span class="bg-gray-200 text-gray-800 px-4 py-2 rounded-full font-bold text-sm border border-gray-300">
                                 ❌ Dibatalkan
                             </span>
-                        @else
-                            {{-- Kondisi jika ada status aneh yang tidak terdefinisi --}}
-                            <span class="bg-gray-100 text-gray-600 px-4 py-2 rounded-full font-bold text-sm border border-gray-200">
-                                Status: {{ $order->status }}
-                            </span>
                         @endif
-                        
                     </div>
                 </div>
 
-                {{-- Daftar Produk --}}
+                {{-- Daftar Produk & Form Review --}}
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-2 mb-4 pb-2 border-b">
                         <span class="text-gray-500 text-sm">Toko:</span>
                         <span class="font-bold text-pink-600">{{ $order->shop->name }}</span>
                     </div>
 
-                    <div class="space-y-6">
+                    <div class="space-y-8">
                         @foreach($order->items as $item)
-                        <div class="flex justify-between items-start border-b pb-6 last:border-0 last:pb-0">
-                            <div class="flex gap-4 w-full">
-                                <img src="{{ $item->product->image_url }}" class="w-20 h-20 rounded object-cover border bg-gray-50 flex-shrink-0">
-                                
-                                <div class="flex-1">
-                                    <div class="flex justify-between">
-                                        <div>
-                                            <p class="font-bold text-gray-800">{{ $item->product->name }}</p>
-                                            <p class="text-sm text-gray-500">{{ $item->quantity }} x Rp {{ number_format($item->price_at_purchase, 0, ',', '.') }}</p>
-                                        </div>
-                                        <div class="font-bold text-gray-700">
-                                            Rp {{ number_format($item->price_at_purchase * $item->quantity, 0, ',', '.') }}
-                                        </div>
-                                    </div>
+                        <div class="border-b last:border-0 pb-8 last:pb-0">
+                            <div class="flex justify-between items-start">
+                                <div class="flex gap-4 w-full">
+                                    <img src="{{ $item->product->image_url }}" fetchpriority="high" loading="lazy" class="w-20 h-20 rounded object-cover border bg-gray-50 flex-shrink-0">
                                     
-                                    {{-- AKSES PRODUK DIGITAL --}}
-                                    @if($item->product->product_type == 'digital')
-                                        <div class="mt-3 flex items-center gap-3">
-                                            <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded font-bold uppercase">📄 Digital PDF</span>
-                                            
-                                            @if(in_array($order->status, ['processing', 'shipped', 'completed']) || $order->payment_status == 'paid')
-                                                <a href="{{ route('orders.download', $item->id) }}" class="flex items-center gap-1 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition font-bold shadow-sm">
-                                                    ⬇️ Download Pola
-                                                </a>
-                                            @elseif($order->status != 'cancelled')
-                                                <span class="text-xs text-gray-400 italic">*Tersedia setelah pembayaran diverifikasi</span>
-                                            @endif
+                                    <div class="flex-1">
+                                        <div class="flex justify-between">
+                                            <div>
+                                                <p class="font-bold text-gray-800">{{ $item->product->name }}</p>
+                                                <p class="text-sm text-gray-500">{{ $item->quantity }} x Rp {{ number_format($item->price_at_purchase, 0, ',', '.') }}</p>
+                                            </div>
+                                            <div class="font-bold text-gray-700">
+                                                Rp {{ number_format($item->price_at_purchase * $item->quantity, 0, ',', '.') }}
+                                            </div>
+                                        </div>
+                                        
+                                        {{-- AKSES PRODUK DIGITAL --}}
+                                        @if($item->product->product_type == 'digital')
+                                            <div class="mt-3 flex items-center gap-3">
+                                                <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded font-bold uppercase">📄 Digital PDF</span>
+                                                @if(in_array($order->status, ['processing', 'shipped', 'completed']) || $order->payment_status == 'paid')
+                                                    <a href="{{ route('orders.download', $item->id) }}" class="flex items-center gap-1 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition font-bold shadow-sm">
+                                                        ⬇️ Download Pola
+                                                    </a>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- INTEGRASI FITUR REVIEW --}}
+                            @if($order->status == 'completed')
+                                @php
+                                    $hasReviewed = \App\Models\Review::where('order_id', $order->id)
+                                                    ->where('product_id', $item->product_id)
+                                                    ->where('user_id', auth()->id())
+                                                    ->exists();
+                                @endphp
+
+                                <div class="mt-4 ml-24">
+                                    @if(!$hasReviewed)
+                                        <div id="review-section-{{ $item->id }}" class="bg-pink-50 p-4 rounded-lg border border-pink-100">
+                                            <p class="text-sm font-bold text-pink-800 mb-3"><i class="fas fa-star text-yellow-500"></i> Berikan Ulasan untuk Produk Ini:</p>
+                                            <form action="{{ route('reviews.store') }}" method="POST">
+                                                @csrf
+                                                <input type="hidden" name="order_id" value="{{ $order->id }}">
+                                                <input type="hidden" name="product_id" value="{{ $item->product_id }}">
+
+                                                <div class="space-y-3">
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-600 mb-1">Rating</label>
+                                                        <select name="rating" class="w-full md:w-48 text-sm border-gray-300 rounded-lg focus:ring-pink-500" required>
+                                                            <option value="5">⭐⭐⭐⭐⭐ (Sangat Puas)</option>
+                                                            <option value="4">⭐⭐⭐⭐ (Puas)</option>
+                                                            <option value="3">⭐⭐⭐ (Cukup)</option>
+                                                            <option value="2">⭐⭐ (Buruk)</option>
+                                                            <option value="1">⭐ (Sangat Buruk)</option>
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-600 mb-1">Komentar</label>
+                                                        <textarea name="comment" rows="2" class="w-full text-sm border-gray-300 rounded-lg focus:ring-pink-500" placeholder="Ceritakan pengalaman Anda menggunakan produk ini..." required></textarea>
+                                                    </div>
+                                                    
+                                                    <button type="submit" class="bg-pink-600 text-white px-6 py-2 rounded-lg text-xs font-bold hover:bg-pink-700 transition shadow-sm">
+                                                        Kirim Ulasan
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    @else
+                                        <div class="flex items-center gap-2 text-green-600 text-sm font-bold bg-green-50 w-max px-3 py-1 rounded-full border border-green-100">
+                                            <i class="fas fa-check-circle"></i> Ulasan telah diberikan
                                         </div>
                                     @endif
                                 </div>
-                            </div>
+                            @endif
                         </div>
                         @endforeach
                     </div>
@@ -177,8 +218,17 @@
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Upload Bukti Transfer</label>
                                 <input type="file" name="payment_proof" required class="w-full text-xs border border-gray-300 rounded-lg p-2">
                             </div>
-                            <button type="submit" class="w-full bg-pink-600 text-white font-bold py-3 rounded-lg hover:bg-pink-700 shadow-lg">Kirim Bukti Pembayaran</button>
+                            <button type="submit" class="w-full bg-pink-600 text-white font-bold py-3 rounded-lg hover:bg-pink-700 shadow-lg transition">Kirim Bukti Pembayaran</button>
                         </form>
+                    @endif
+
+                    {{-- Informasi Tambahan Jika Sudah Bayar --}}
+                    @if($order->payment_proof && $order->status == 'pending')
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                            <p class="text-xs text-blue-700 leading-relaxed">
+                                <i class="fas fa-info-circle mr-1"></i> Pembayaran Anda sedang diproses oleh admin. Mohon tunggu verifikasi dalam waktu maksimal 1x24 jam.
+                            </p>
+                        </div>
                     @endif
                 </div>
             </div>

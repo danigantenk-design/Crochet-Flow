@@ -67,7 +67,7 @@
                 <div class="flex items-center gap-4">
                     {{-- Preview Gambar Lama --}}
                     @if($product->image)
-                        <img src="{{ asset('storage/' . $product->image) }}" class="w-20 h-20 object-cover rounded-lg border bg-white">
+                        <img src="{{ asset('storage/' . $product->image) }}" fetchpriority="high" loading="lazy" class="w-20 h-20 object-cover rounded-lg border bg-white">
                     @endif
                     
                     <div class="flex-1">

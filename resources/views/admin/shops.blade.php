@@ -26,7 +26,7 @@
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-3">
                             @if($shop->image)
-                                <img src="{{ asset('storage/'.$shop->image) }}" class="w-10 h-10 rounded object-cover border">
+                                <img src="{{ asset('storage/'.$shop->image) }}" fetchpriority="high" loading="lazy" class="w-10 h-10 rounded object-cover border">
                             @else
                                 <div class="w-10 h-10 bg-pink-100 text-pink-600 rounded flex items-center justify-center font-bold">
                                     {{ substr($shop->name, 0, 1) }}

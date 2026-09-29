@@ -105,7 +105,7 @@ class OrderController extends Controller
     public function apiUploadPayment(Request $request, $id)
     {
         $request->validate([
-            'payment_proof' => 'required|image|mimes:jpg,png,jpeg|max:2048'
+            'payment_proof' => 'required|image|mimes:jpg,png,jpeg,webp|max:2048'
         ]);
 
         // PERBAIKAN: auth()->id()
@@ -137,7 +137,6 @@ class OrderController extends Controller
     {
         $item = OrderItem::with(['order', 'product'])
             ->whereHas('order', function($q) {
-                // PERBAIKAN: auth()->id()
                 $q->where('user_id', Auth::id())->where('status', 'completed');
             })
             ->findOrFail($orderItemId);
