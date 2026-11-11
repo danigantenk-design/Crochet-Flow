@@ -20,6 +20,6 @@ class OrderItem extends Model
     // Relasi: Item ini aslinya produk apa?
     public function product()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class)->withTrashed();
     }
 }

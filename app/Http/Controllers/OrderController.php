@@ -185,20 +185,31 @@ class OrderController extends Controller
         }
         
         // Hanya boleh download jika processing, shipped, atau completed
-        // (Tergantung kebijakanmu, biasanya setelah 'paid')
         if (!in_array($orderItem->order->status, ['processing', 'shipped', 'completed']) && $orderItem->order->payment_status != 'paid') {
             return back()->with('error', 'Silakan selesaikan pembayaran terlebih dahulu.');
         }
 
+        if (!$orderItem->product || $orderItem->product->product_type !== 'digital') {
+            return back()->with('error', 'Produk ini bukan produk digital.');
+        }
+
+        $rawPath = $orderItem->product->file_path ?: $orderItem->product->file_url;
+        if (empty($rawPath)) {
+            return back()->with('error', 'File pola belum diunggah oleh penjual.');
+        }
+
         // Ambil path relatif
-        $relativePath = str_replace('/storage/', '', $orderItem->product->file_url);
+        $relativePath = ltrim(str_replace('/storage/', '', $rawPath), '/\\');
 
         // Pastikan file ada
-        if (!Storage::disk('public')->exists($relativePath)) {
+        if (empty($relativePath) || !Storage::disk('public')->exists($relativePath)) {
             return back()->with('error', 'File tidak ditemukan di server.');
         }
 
         $fullPath = Storage::disk('public')->path($relativePath);
+        if (!is_file($fullPath)) {
+            return back()->with('error', 'File tidak ditemukan di server.');
+        }
         
         return response()->download($fullPath);
     }
@@ -230,6 +241,10 @@ class OrderController extends Controller
         return back()->with('error', 'Pesanan tidak dapat dibatalkan karena sudah diproses atau dikirim.');
     }
     
+    public function markAsCompleted($id)
+    {
+        return $this->confirmReceived($id);
+    }
 
     public function confirmReceived($id)
     {
@@ -239,6 +254,10 @@ class OrderController extends Controller
         // Pastikan hanya pembeli yang bisa konfirmasi
         if ($order->user_id !== $user->id) {
             return back()->with('error', 'Akses ditolak.');
+        }
+
+        if ($order->status === 'completed') {
+            return back()->with('info', 'Pesanan ini sudah diselesaikan sebelumnya.');
         }
 
         DB::transaction(function () use ($order) {

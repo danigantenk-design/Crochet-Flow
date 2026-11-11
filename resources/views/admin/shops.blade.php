@@ -39,7 +39,7 @@
                         </div>
                     </td>
                     <td class="px-6 py-4">
-                        <div class="text-sm font-medium text-gray-900">{{ $shop->user->name }}</div>
+                        <div class="text-sm font-medium text-gray-900">{{ $shop->user->full_name ?? $shop->user->name }}</div>
                         <div class="text-xs text-gray-500">{{ $shop->user->email }}</div>
                     </td>
                     <td class="px-6 py-4">

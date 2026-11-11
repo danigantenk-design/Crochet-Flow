@@ -29,7 +29,7 @@
                     </td>
                     <td class="py-3 px-6 text-left">
                         <div class="flex items-center">
-                            <span class="font-medium">{{ $wd->user->shop->name ?? 'User: ' . $wd->user->name }}</span>
+                            <span class="font-medium">{{ $wd->user->shop->name ?? ($wd->user->full_name ?? $wd->user->name) }}</span>
                         </div>
                     </td>
                     <td class="py-3 px-6 text-left">

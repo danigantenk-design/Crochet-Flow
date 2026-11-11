@@ -86,7 +86,7 @@
                             <td class="p-4 align-middle text-center">
                                 <div class="flex items-center justify-center gap-2">
                                     {{-- Tombol Lihat (Ke Halaman Depan) --}}
-                                    <a href="{{ route('products.show', $product->slug) }}" target="_blank" class="text-gray-400 hover:text-gray-600 p-2" title="Lihat di Web">
+                                    <a href="{{ route('front.product', $product->slug) }}" target="_blank" class="text-gray-400 hover:text-gray-600 p-2" title="Lihat di Web">
                                         👁️
                                     </a>
 

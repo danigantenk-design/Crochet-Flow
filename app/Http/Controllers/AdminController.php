@@ -132,7 +132,80 @@ class AdminController extends Controller
     public function approveShop($id) {
         $shop = Shop::findOrFail($id);
         $shop->update(['is_verified' => true, 'is_active' => true]);
+        if ($shop->user && $shop->user->role !== 'admin') {
+            $shop->user->update(['role' => 'seller']);
+        }
         return back()->with('success', 'Toko disetujui!');
+    }
+
+    public function rejectShop($id) {
+        $shop = Shop::findOrFail($id);
+        $user = $shop->user;
+        if ($user && $user->role === 'seller') {
+            $user->update(['role' => 'buyer']);
+        }
+        $shop->delete();
+        return back()->with('success', 'Pengajuan toko berhasil ditolak.');
+    }
+
+    public function deleteShop($id) {
+        $shop = Shop::findOrFail($id);
+        $user = $shop->user;
+        if ($user && $user->role === 'seller') {
+            $user->update(['role' => 'buyer']);
+        }
+        $shop->delete();
+        return back()->with('success', 'Toko berhasil dihapus.');
+    }
+
+    public function deleteUser($id) {
+        if ($id == Auth::id()) {
+            return back()->with('error', 'Tidak dapat menghapus akun Anda sendiri.');
+        }
+        $user = User::findOrFail($id);
+        $user->delete();
+        return back()->with('success', 'Pengguna berhasil dihapus.');
+    }
+
+    public function approveWithdrawal($id) {
+        $withdrawal = Withdrawal::findOrFail($id);
+        if ($withdrawal->status !== 'pending') {
+            return back()->with('error', 'Permintaan penarikan ini sudah diproses.');
+        }
+        $withdrawal->update(['status' => 'approved']);
+        return back()->with('success', 'Penarikan dana berhasil disetujui.');
+    }
+
+    public function rejectWithdrawal($id) {
+        $withdrawal = Withdrawal::findOrFail($id);
+        if ($withdrawal->status !== 'pending') {
+            return back()->with('error', 'Permintaan penarikan ini sudah diproses.');
+        }
+
+        DB::transaction(function () use ($withdrawal) {
+            $withdrawal->update(['status' => 'rejected']);
+
+            $wallet = Wallet::firstOrCreate(
+                ['user_id' => $withdrawal->user_id],
+                ['balance' => 0]
+            );
+            $wallet->increment('balance', $withdrawal->amount);
+
+            WalletTransaction::create([
+                'wallet_id' => $wallet->id,
+                'type' => 'credit',
+                'amount' => $withdrawal->amount,
+                'description' => 'Pengembalian Dana: Penarikan Ditolak',
+                'reference_id' => $withdrawal->id,
+                'reference_type' => 'withdrawal_refund'
+            ]);
+        });
+
+        return back()->with('success', 'Permintaan penarikan ditolak dan saldo telah dikembalikan ke pengguna.');
+    }
+
+    public function history() {
+        return redirect()->route('admin.orders.history');
     }
 
     // app/Http/Controllers/AdminController.php

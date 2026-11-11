@@ -43,6 +43,10 @@ class ProductController extends Controller
     // 2. SIMPAN PRODUK BARU
     public function store(Request $request)
     {
+        if (!Auth::user()->shop) {
+            return redirect()->route('shop.create');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
@@ -50,6 +54,7 @@ class ProductController extends Controller
             'stock' => 'required|integer|min:0',
             'weight' => 'required_if:product_type,physical|nullable|numeric',
             'product_type' => 'required|in:physical,digital',
+            'digital_file' => 'nullable|file|mimes:pdf,zip,rar|max:20480',
             'description' => 'required|string',
             'images' => 'required|array|min:1',
             'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
@@ -57,6 +62,11 @@ class ProductController extends Controller
 
         DB::beginTransaction();
         try {
+            $digitalPath = null;
+            if ($request->hasFile('digital_file') && $request->product_type === 'digital') {
+                $digitalPath = $request->file('digital_file')->store('digital-products', 'public');
+            }
+
             // 1. Simpan Data Produk Utama
             $product = Product::create([
                 'shop_id' => Auth::user()->shop->id,
@@ -65,8 +75,10 @@ class ProductController extends Controller
                 'slug' => Str::slug($request->name) . '-' . time(),
                 'price' => $request->price,
                 'stock' => $request->stock,
-                'weight' => $request->product_type === 'digital' ? 0 : $request->weight,
+                'weight' => $request->product_type === 'digital' ? 0 : ($request->weight ?? 0),
                 'product_type' => $request->product_type,
+                'file_path' => $digitalPath,
+                'file_url' => $digitalPath,
                 'description' => $request->description,
                 'is_active' => true,
             ]);
@@ -102,6 +114,10 @@ class ProductController extends Controller
     // 3. TAMPILKAN FORM EDIT
     public function edit($id)
     {
+        if (!Auth::user()->shop) {
+            return redirect()->route('shop.create');
+        }
+
         $shopId = Auth::user()->shop->id;
         $product = Product::where('shop_id', $shopId)->findOrFail($id);
         
@@ -112,6 +128,10 @@ class ProductController extends Controller
     // 4. UPDATE PRODUK
     public function update(Request $request, $id)
     {
+        if (!Auth::user()->shop) {
+            return redirect()->route('shop.create');
+        }
+
         $shopId = Auth::user()->shop->id;
         $product = Product::where('shop_id', $shopId)->findOrFail($id);
 
@@ -122,6 +142,7 @@ class ProductController extends Controller
             'category_id' => 'required|exists:categories,id',
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'digital_file' => 'nullable|file|mimes:pdf,zip,rar|max:20480',
         ]);
 
         $data = [
@@ -134,11 +155,37 @@ class ProductController extends Controller
             'is_active' => $request->has('is_active') ? 1 : 0,
         ];
 
-        if ($request->hasFile('image')) {
-            if ($product->image) {
-                Storage::disk('public')->delete($product->image);
+        if ($request->hasFile('digital_file')) {
+            if ($product->file_path && Storage::disk('public')->exists($product->file_path)) {
+                Storage::disk('public')->delete($product->file_path);
             }
-            $data['image'] = $request->file('image')->store('products', 'public');
+            $digitalPath = $request->file('digital_file')->store('digital-products', 'public');
+            $data['file_path'] = $digitalPath;
+            $data['file_url'] = $digitalPath;
+        }
+
+        if ($request->hasFile('image')) {
+            $category = Category::find($request->category_id);
+            $folderName = Str::slug($category->name ?? 'umum');
+            $imageFile = $request->file('image');
+            $fileName = time() . '_' . Str::random(5) . '.' . $imageFile->getClientOriginalExtension();
+            $imageFile->move(public_path("images/product/{$folderName}"), $fileName);
+
+            $primaryImage = $product->images()->where('is_primary', true)->first() ?: $product->images()->first();
+            if ($primaryImage) {
+                if (file_exists(public_path("images/{$primaryImage->image_url}"))) {
+                    @unlink(public_path("images/{$primaryImage->image_url}"));
+                }
+                $primaryImage->update([
+                    'image_url' => "product/{$folderName}/{$fileName}",
+                    'is_primary' => true
+                ]);
+            } else {
+                $product->images()->create([
+                    'image_url' => "product/{$folderName}/{$fileName}",
+                    'is_primary' => true
+                ]);
+            }
         }
 
         $product->update($data);
@@ -148,11 +195,22 @@ class ProductController extends Controller
     // 5. HAPUS PRODUK
     public function destroy($id)
     {
+        if (!Auth::user()->shop) {
+            return redirect()->route('shop.create');
+        }
+
         $shopId = Auth::user()->shop->id;
         $product = Product::where('shop_id', $shopId)->findOrFail($id);
 
-        if ($product->image) {
-            Storage::disk('public')->delete($product->image);
+        if ($product->file_path && Storage::disk('public')->exists($product->file_path)) {
+            Storage::disk('public')->delete($product->file_path);
+        }
+
+        foreach ($product->images as $img) {
+            if (file_exists(public_path("images/{$img->image_url}"))) {
+                @unlink(public_path("images/{$img->image_url}"));
+            }
+            $img->delete();
         }
 
         $product->delete();

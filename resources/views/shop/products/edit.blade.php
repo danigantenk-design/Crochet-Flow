@@ -66,8 +66,8 @@
                 <label class="block text-sm font-bold text-gray-700 mb-2">Foto Produk</label>
                 <div class="flex items-center gap-4">
                     {{-- Preview Gambar Lama --}}
-                    @if($product->image)
-                        <img src="{{ asset('storage/' . $product->image) }}" fetchpriority="high" loading="lazy" class="w-20 h-20 object-cover rounded-lg border bg-white">
+                    @if($product->image_url)
+                        <img src="{{ $product->image_url }}" fetchpriority="high" loading="lazy" class="w-20 h-20 object-cover rounded-lg border bg-white">
                     @endif
                     
                     <div class="flex-1">
@@ -76,6 +76,16 @@
                     </div>
                 </div>
             </div>
+
+            @if($product->product_type === 'digital')
+            <div class="mb-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <label class="block text-sm font-bold text-blue-700 mb-2">File Pola Digital (PDF/ZIP)</label>
+                @if($product->file_path)
+                    <p class="text-xs text-green-600 font-semibold mb-2">✅ File pola sudah ada. Unggah file baru untuk menggantinya.</p>
+                @endif
+                <input type="file" name="digital_file" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
+            </div>
+            @endif
 
             <div class="flex justify-end gap-3">
                 <a href="{{ route('shop.index') }}" class="px-6 py-2 rounded-lg text-gray-600 font-bold hover:bg-gray-100 transition">Batal</a>

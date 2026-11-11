@@ -283,13 +283,16 @@ class ShopController extends Controller
         // Ambil Riwayat Transaksi
         $transactions = $wallet->transactions()->latest()->paginate(10);
 
-                $pendingIncome = Order::where('shop_id', $shop->id)
-                        ->whereIn('status', ['shipped'])
-                        ->where('payment_status', 'paid')
-                        ->get()
-                        ->sum(function($order) {
-                            return $order->calculateNetIncome();
-                        });
+        $pendingIncome = 0;
+        if ($shop) {
+            $pendingIncome = Order::where('shop_id', $shop->id)
+                    ->whereIn('status', ['shipped'])
+                    ->where('payment_status', 'paid')
+                    ->get()
+                    ->sum(function($order) {
+                        return $order->calculateNetIncome();
+                    });
+        }
 
         return view('shop.finance', compact('wallet', 'transactions', 'pendingIncome'));
     }

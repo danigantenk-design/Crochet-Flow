@@ -34,7 +34,7 @@ class Order extends Model
     // Cek apakah pesanan ini 100% Digital
     public function isFullDigital()
     {
-        return $this->items->every(fn($item) => $item->product->product_type === 'digital');
+        return $this->items->every(fn($item) => $item->product?->product_type === 'digital');
     }
     
 

@@ -27,7 +27,7 @@
                 @foreach($users as $user)
                 <tr class="hover:bg-gray-50">
                     <td class="px-6 py-4">
-                        <div class="text-sm font-bold text-gray-900">{{ $user->name }}</div>
+                        <div class="text-sm font-bold text-gray-900">{{ $user->full_name ?? $user->name }}</div>
                         <div class="text-sm text-gray-500">{{ $user->email }}</div>
                     </td>
                     <td class="px-6 py-4">

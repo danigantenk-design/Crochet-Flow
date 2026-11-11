@@ -21,12 +21,24 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'full_name',
+        'name',
         'email',
         'password',
         'role',
         'phone_number',
         'avatar_url',
     ];
+
+    public function getNameAttribute(): string
+    {
+        return $this->attributes['full_name'] ?? '';
+    }
+
+    public function setNameAttribute($value): void
+    {
+        $this->attributes['full_name'] = $value;
+        unset($this->attributes['name']);
+    }
 
     /**
      * The attributes that should be hidden for serialization.

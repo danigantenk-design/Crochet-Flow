@@ -52,6 +52,15 @@ class Product extends Model
         return asset('images/default-product.jpg');
     }
 
+    public function getFileUrlAttribute()
+    {
+        $rawPath = $this->attributes['file_path'] ?? ($this->attributes['file_url'] ?? null);
+        if ($rawPath) {
+            return asset('storage/' . ltrim(str_replace('/storage/', '', $rawPath), '/\\'));
+        }
+        return null;
+    }
+
     /**
      * Menghitung rata-rata rating dari review
      */
